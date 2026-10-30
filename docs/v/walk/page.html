@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boston walks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --paper: #f4f1e9; --card: #ffffff; --ink: #141414; --chip: #ece8de; --water: #cfe3ea; --nav: 72px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--paper); color: var(--ink); font-family: 'Schibsted Grotesk', system-ui, sans-serif; font-size: 15px; line-height: 1.35; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .app { max-width: 430px; margin: 0 auto; min-height: 100%; position: relative; }
+  .screen { display: none; }
+  .screen.on { display: block; }
+
+  /* today */
+  .today { padding: 20px 16px calc(var(--nav) + 24px); }
+  .hello { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .hello h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .hello .date { font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .kicker { font-size: 13px; font-weight: 600; margin: 24px 0 8px; }
+  .next { background: var(--card); border-radius: 22px; padding: 18px; box-shadow: 0 10px 30px rgba(20,20,20,.06); display: grid; grid-template-columns: 1fr 112px; gap: 14px; align-items: start; }
+  .next h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.1; margin: 0 0 12px; }
+  .next .why { font-size: 13px; margin: 12px 0 0; }
+  .mini { width: 112px; height: 112px; border-radius: 18px; overflow: hidden; background: var(--paper); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.2; }
+  .chip.ink { background: var(--ink); color: var(--card); }
+  .days { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 8px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .days::-webkit-scrollbar { display: none; }
+  .day { flex: 0 0 176px; scroll-snap-align: start; text-align: left; }
+  .day .tile { position: relative; width: 176px; height: 140px; border-radius: 18px; overflow: hidden; background: var(--card); box-shadow: 0 8px 24px rgba(20,20,20,.06); }
+  .day.on .tile { outline: 3px solid var(--ink); outline-offset: -3px; }
+  .day .tile .chips { position: absolute; left: 10px; bottom: 10px; z-index: 500; }
+  .day .tile .chip { background: var(--card); box-shadow: 0 2px 8px rgba(20,20,20,.08); }
+  .day h3 { font-size: 14px; font-weight: 600; margin: 10px 2px 0; line-height: 1.25; }
+  .day p { font-size: 12px; margin: 2px 2px 0; }
+  .stops { margin: 0; padding: 0; list-style: none; background: var(--card); border-radius: 22px; box-shadow: 0 10px 30px rgba(20,20,20,.06); }
+  .stops li { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; padding: 14px 16px; align-items: baseline; }
+  .stops li + li { padding-top: 0; }
+  .stops .t { font-size: 13px; font-weight: 600; }
+  .stops .n { font-size: 15px; font-weight: 500; }
+  .stops .leg { grid-column: 2 / 4; font-size: 12px; margin-top: 2px; }
+  .stops .p { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .stops li.done .n { text-decoration: line-through; }
+
+  /* map */
+  .mapwrap { position: fixed; inset: 0; }
+  #map { position: absolute; inset: 0; background: var(--paper); }
+  .maptop { position: absolute; top: 14px; left: 0; right: 0; z-index: 800; display: flex; justify-content: center; pointer-events: none; }
+  .maptop .daysel { pointer-events: auto; display: flex; gap: 2px; width: calc(100% - 32px); background: var(--card); border-radius: 999px; padding: 4px; box-shadow: 0 8px 24px rgba(20,20,20,.1); max-width: calc(100vw - 32px); overflow-x: auto; scrollbar-width: none; }
+  .maptop .daysel::-webkit-scrollbar { display: none; }
+  .daysel button { padding: 7px 6px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; flex: 1; }
+  .daysel button[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+  .pill { position: relative; width: max-content; }
+  .pill .tag { position: absolute; left: -12px; bottom: calc(100% + 5px); background: var(--card); border-radius: 999px; padding: 3px 8px; font-size: 10.5px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px rgba(20,20,20,.1); line-height: 1.3; }
+  .pill .name { display: block; width: max-content; margin-left: -12px; background: var(--card); color: var(--ink); border-radius: 999px; padding: 7px 11px 7px 8px; font-size: 12.5px; font-weight: 600; white-space: nowrap; box-shadow: 0 6px 18px rgba(20,20,20,.14); line-height: 1.2; }
+  .pill .name::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); margin-right: 6px; vertical-align: 0; }
+  .pill.lodge .name { background: var(--ink); color: var(--card); }
+  .pill.lodge .name::before { background: var(--card); }
+  .leaflet-container { font: inherit; }
+  .leaflet-div-icon { background: none; border: 0; }
+  .leaflet-control-attribution { font-size: 10px; background: rgba(255,255,255,.7); }
+  .leaflet-bottom { bottom: var(--nav); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: var(--nav); z-index: 900; display: flex; justify-content: center; pointer-events: none; padding: 0 16px 12px; }
+  .sheet .card { pointer-events: auto; background: var(--card); border-radius: 22px; padding: 16px 18px; box-shadow: 0 12px 36px rgba(20,20,20,.14); width: 100%; max-width: 398px; }
+  .sheet h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .sheet p { font-size: 13px; margin: 10px 0 0; }
+  .sheet .close { position: absolute; right: 28px; top: 12px; font-size: 13px; font-weight: 600; }
+
+  /* checklist */
+  .list { padding: 20px 16px calc(var(--nav) + 24px); }
+  .list h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .list .sub { font-size: 14px; margin: 0 0 20px; }
+  .list h2 { font-size: 13px; font-weight: 600; margin: 22px 0 8px; }
+  .ticks { list-style: none; margin: 0; padding: 0; background: var(--card); border-radius: 22px; box-shadow: 0 10px 30px rgba(20,20,20,.06); }
+  .ticks li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+  .ticks input { appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--chip); margin: 0; flex: 0 0 auto; position: relative; }
+  .ticks input:checked { background: var(--ink); }
+  .ticks input:checked::after { content: ''; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px; border: solid var(--card); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+  .ticks label { flex: 1; font-size: 15px; font-weight: 500; }
+  .ticks .t { font-size: 12px; font-weight: 600; width: 40px; }
+  .ticks input:checked ~ label { text-decoration: line-through; }
+
+  /* nav */
+  .nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: 100%; max-width: 430px; height: var(--nav); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 8px 16px 0; pointer-events: none; }
+  .nav .bar { pointer-events: auto; display: flex; background: var(--ink); color: var(--card); border-radius: 999px; padding: 6px; box-shadow: 0 10px 30px rgba(20,20,20,.18); }
+  .nav button { display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--card); }
+  .nav button[aria-current="page"] { background: var(--card); color: var(--ink); }
+  .nav svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="screen today" id="s-today"></section>
+  <section class="screen" id="s-map">
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="maptop"><div class="daysel" id="daysel"></div></div>
+      <div class="sheet" id="sheet" hidden></div>
+    </div>
+  </section>
+  <section class="screen list" id="s-list"></section>
+</div>
+<nav class="nav"><div class="bar">
+  <button data-go="today"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Today</button>
+  <button data-go="map"><svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Map</button>
+  <button data-go="list"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>Checklist</button>
+</div></nav>
+
+<script id="seed" type="application/json">/*ITINERARY*/</script>
+<script>
+const SEED = JSON.parse(document.getElementById('seed').textContent);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const DAY_NAMES = ['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+const SHORT = ['Fri 30', 'Sat 31', 'Sun 1', 'Mon 2', 'Tue 3', 'Wed 4', 'Thu 5'];
+const place = n => n.replace(/^(Breakfast|Lunch|Dinner|Brunch|Coffee|Dinner and last bookstore):\s*/, '');
+const mins = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const dur = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
+const price = s => { const l = (s.cost && s.cost.label || '').trim(); if (!l) return s.cost && s.cost.amountUsd ? `~$${s.cost.amountUsd}` : 'Free'; return l.replace(/\s*\(.*\)$/, '').replace(/^Free.*/, 'Free'); };
+const legText = s => { const l = s.legToNext; if (!l) return ''; const m = { walk: 'walk', subway: 'T', bus: 'bus', ride: 'ride' }[l.mode] || l.mode; return `${l.minutes} min ${m} to the next stop${l.costUsd ? `, $${l.costUsd.toFixed(2).replace(/\.00$/, '')}` : ''}`; };
+const dayStops = d => d.stops.filter(s => s.lat != null || true);
+const daySpan = d => { const t = d.stops.map(s => mins(s.time)); if (t.length < 2) return 0; return Math.max(...t) - Math.min(...t) + (d.stops[d.stops.length - 1].legToNext ? 0 : 0); };
+const titleOf = d => d.title.replace(/^\w+ \w+ \d+:\s*/, '').replace(/^\w/, c => c.toUpperCase());
+
+/* ---------- state ---------- */
+const localYmd = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; };
+let dayIdx = Math.max(0, SEED.days.findIndex(d => d.date === localYmd()));
+let screen = 'today', openStop = null;
+const KEY = 'bostonWalk.v1';
+let done = {}; try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+const saveDone = () => { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} };
+
+/* ---------- light basemap ---------- */
+const ROAD_W = { m: 3.2, k: 3, p: 2.4, s: 1.8, t: 1.3 };
+let BASE = null;
+const Paper = L.GridLayer.extend({
+  createTile(coords) {
+    const c = document.createElement('canvas'), size = this.getTileSize(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = size.x * dpr; c.height = size.y * dpr;
+    const ctx = c.getContext('2d'); ctx.scale(dpr, dpr); ctx.fillStyle = '#f4f1e9'; ctx.fillRect(0, 0, size.x, size.y);
+    if (BASE) this.draw(ctx, coords, size.x);
+    return c;
+  },
+  draw(ctx, coords, T) {
+    const z = coords.z, scale = T * Math.pow(2, z), ox = coords.x * T, oy = coords.y * T, pad = 40;
+    const X = lng => (lng + 180) / 360 * scale - ox;
+    const Y = lat => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * scale - oy; };
+    const lat = y => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / scale))) * 180 / Math.PI;
+    const west = (ox - pad) / scale * 360 - 180, east = (ox + T + pad) / scale * 360 - 180, north = lat(oy - pad), south = lat(oy + T + pad);
+    const hit = f => !(f.b[2] < west || f.b[0] > east || f.b[3] < south || f.b[1] > north);
+    const areas = (c, list) => { c.beginPath(); list.forEach(f => f.r.forEach(r => { r.forEach((p, i) => i ? c.lineTo(X(p[0]), Y(p[1])) : c.moveTo(X(p[0]), Y(p[1]))); c.closePath(); })); };
+    const line = (c, p) => { c.beginPath(); p.forEach((q, i) => i ? c.lineTo(X(q[0]), Y(q[1])) : c.moveTo(X(q[0]), Y(q[1]))); c.stroke(); };
+    const k = Math.pow(2, z - 14);
+    const show = z >= 16 ? 'mkpst' : z >= 15 ? 'mkps' : z >= 14 ? 'mkp' : z >= 12 ? 'mk' : 'm';
+    const roads = BASE.roads.filter(f => show.includes(f.c) && hit(f));
+    const rail = z >= 13 ? BASE.rail.filter(f => !f.u && hit(f)) : [];
+    const water = BASE.water.filter(hit);
+    const roadW = f => Math.max(1, Math.min(7, ROAD_W[f.c] * Math.pow(k, .6)));
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (water.length) { ctx.fillStyle = '#cfe3ea'; areas(ctx, water); ctx.fill('evenodd'); }
+    if (rail.length) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2; ctx.setLineDash([5, 4]); rail.forEach(f => line(ctx, f.p)); ctx.setLineDash([]); }
+    ctx.strokeStyle = '#ffffff'; 'tspkm'.split('').forEach(c => roads.forEach(f => { if (f.c === c) { ctx.lineWidth = roadW(f); line(ctx, f.p); } }));
+  }
+});
+const paperLayer = () => new Paper({ tileSize: 256, updateWhenZooming: false, keepBuffer: 2, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
+const layers = [];
+fetch('../../basemap.json').then(r => r.json()).then(d => {
+  const bb = pts => { let a = 180, b = 90, c = -180, e = -90; pts.forEach(p => { if (p[0] < a) a = p[0]; if (p[0] > c) c = p[0]; if (p[1] < b) b = p[1]; if (p[1] > e) e = p[1]; }); return [a, b, c, e]; };
+  d.water.forEach(f => f.b = bb(f.r.flat())); d.builtup.forEach(f => f.b = bb(f.r.flat())); d.roads.forEach(f => f.b = bb(f.p)); d.rail.forEach(f => f.b = bb(f.p));
+  BASE = d; layers.forEach(l => l.redraw());
+}).catch(() => {});
+
+/* a small, still map of one day's route */
+function stillMap(el, day, opts) {
+  const m = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0.25 });
+  const l = paperLayer().addTo(m); layers.push(l);
+  const all = day.stops.filter(s => s.lat != null), walk = all.filter(s => s.type !== 'transit' && !/airport|logan/i.test(s.name));
+  const pts = (walk.length ? walk : all).map(s => [s.lat, s.lng]);
+  if (pts.length) {
+    L.polyline(pts, { color: '#141414', weight: 2, dashArray: '1 5', lineCap: 'round' }).addTo(m);
+    pts.forEach((p, i) => L.circleMarker(p, { radius: i === 0 || i === pts.length - 1 ? 5 : 3.5, color: '#ffffff', weight: 2, fillColor: '#141414', fillOpacity: 1 }).addTo(m));
+    m.fitBounds(L.latLngBounds(pts), { padding: opts && opts.pad || [14, 14], maxZoom: 15 });
+  } else m.setView([42.362, -71.09], 12);
+  return m;
+}
+
+/* ---------- today ---------- */
+function nextStop(day) {
+  if (day.date !== localYmd()) return day.stops[0];
+  const n = new Date(), now = n.getHours() * 60 + n.getMinutes();
+  return day.stops.find(s => mins(s.time) + 30 > now) || day.stops[day.stops.length - 1];
+}
+function greeting() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+function renderToday() {
+  const day = SEED.days[dayIdx], nx = nextStop(day), up = day.stops.indexOf(nx);
+  const after = day.stops.slice(up + 1);
+  const chips = [esc(nx.time), esc(price(nx))];
+  if (nx.legToNext) chips.push(`${nx.legToNext.minutes} min ${({ walk: 'walk', subway: 'on the T', bus: 'bus', ride: 'ride' })[nx.legToNext.mode] || nx.legToNext.mode} next`);
+  const el = document.getElementById('s-today');
+  el.innerHTML = `
+    <div class="hello"><h1>${greeting()}</h1><span class="date">${DAY_NAMES[dayIdx]}, ${SHORT[dayIdx].split(' ')[1]} ${dayIdx === 0 || dayIdx === 1 ? 'Oct' : 'Nov'}</span></div>
+    <div class="kicker">${day.date === localYmd() ? 'Up next' : 'First stop'}</div>
+    <div class="next">
+      <div>
+        <h2>${esc(place(nx.name))}</h2>
+        <div class="chips">${chips.map(c => `<span class="chip">${c}</span>`).join('')}</div>
+        ${nx.why ? `<p class="why">${esc(nx.why)}</p>` : ''}
+        ${after.length ? `<p class="why">${after.length} more stop${after.length > 1 ? 's' : ''} today, ends at ${esc(place(day.stops[day.stops.length - 1].name))}.</p>` : ''}
+      </div>
+      <div class="mini" id="mini"></div>
+    </div>
+    <div class="kicker">Your week</div>
+    <div class="days">${SEED.days.map((d, i) => `<button class="day${i === dayIdx ? ' on' : ''}" data-day="${i}">
+      <div class="tile"><div class="tilemap" id="tile-${i}"></div><div class="chips"><span class="chip">${d.stops.length} stop${d.stops.length > 1 ? 's' : ''}</span>${daySpan(d) ? `<span class="chip">${dur(daySpan(d))}</span>` : ''}</div></div>
+      <h3>${esc(titleOf(d))}</h3><p>${SHORT[i]}${d.spend ? ` · ${esc(d.spend.replace(/ plus.*$/, ''))}` : ''}</p></button>`).join('')}</div>
+    <div class="kicker">${DAY_NAMES[dayIdx]}'s stops</div>
+    <ul class="stops">${day.stops.map(s => `<li${done[s.id] ? ' class="done"' : ''}><span class="t">${esc(s.time)}</span><span class="n">${esc(place(s.name))}</span><span class="p">${esc(price(s))}</span>${s.legToNext ? `<span class="leg">${esc(legText(s))}</span>` : ''}</li>`).join('')}</ul>`;
+  document.querySelectorAll('.tilemap').forEach(t => { t.style.cssText = 'position:absolute;inset:0;background:#f4f1e9'; });
+  stillMap(document.getElementById('mini'), day, { pad: [10, 10] });
+  SEED.days.forEach((d, i) => stillMap(document.getElementById('tile-' + i), d, { pad: [16, 40] }));
+  el.querySelectorAll('[data-day]').forEach(b => b.onclick = () => { dayIdx = +b.dataset.day; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+}
+
+/* ---------- map ---------- */
+let map = null, routeLayer = null, pillLayer = null;
+function pill(s, tag, lodge, lift) {
+  return L.divIcon({ className: '', html: `<div class="pill${lodge ? ' lodge' : ''}">${tag ? `<span class="tag">${tag}</span>` : ''}<span class="name">${esc(place(s.name))}</span></div>`, iconSize: [0, 0], iconAnchor: [0, 14 + (lift || 0)] });
+}
+function renderMap() {
+  const day = SEED.days[dayIdx];
+  document.getElementById('daysel').innerHTML = SEED.days.map((d, i) => `<button aria-pressed="${i === dayIdx}" data-day="${i}">${SHORT[i]}</button>`).join('');
+  document.querySelectorAll('#daysel [data-day]').forEach(b => b.onclick = () => { dayIdx = +b.dataset.day; openStop = null; render(); });
+  if (!map) {
+    map = L.map('map', { zoomControl: false, attributionControl: true, zoomSnap: 0.5, maxZoom: 17 }).setView([42.362, -71.09], 12);
+    map.attributionControl.setPrefix('');
+    const l = paperLayer().addTo(map); layers.push(l);
+    routeLayer = L.layerGroup().addTo(map); pillLayer = L.layerGroup().addTo(map);
+    map.on('click', () => { openStop = null; renderSheet(); });
+    map.on('moveend', placePills);
+  }
+  routeLayer.clearLayers();
+  const pts = day.stops.filter(s => s.lat != null);
+  if (pts.length) {
+    L.polyline(pts.map(s => [s.lat, s.lng]), { color: '#141414', weight: 2.5, dashArray: '1 7', lineCap: 'round' }).addTo(routeLayer);
+    const walk = pts.filter(s => s.type !== 'transit' && !/airport|logan/i.test(s.name));
+    const fit = (walk.length ? walk : pts).map(s => [s.lat, s.lng]);
+    setTimeout(() => { map.invalidateSize(); map.fitBounds(L.latLngBounds(fit), { paddingTopLeft: [28, 100], paddingBottomRight: [150, 120], maxZoom: 15.5 }); }, 0);
+  }
+  renderSheet();
+}
+/* pills that would sit on top of each other fold into one "n stops" pill; zooming in unfolds them */
+function placePills() {
+  if (!map) return;
+  const day = SEED.days[dayIdx];
+  pillLayer.clearLayers();
+  const pts = day.stops.filter(s => s.lat != null).map(s => ({ s, p: map.latLngToLayerPoint([s.lat, s.lng]) }));
+  const groups = [];
+  pts.forEach(it => {
+    const w = s => 30 + 7 * place(s.name).length;
+    const g = groups.find(g => (it.p.x >= g.p.x ? it.p.x - g.p.x < w(g.items[0]) : g.p.x - it.p.x < w(it.s)) && Math.abs(g.p.y - it.p.y) < 48);
+    if (g) { g.items.push(it.s); } else groups.push({ p: it.p, items: [it.s] });
+  });
+  const single = (s, lift) => { const m = L.marker([s.lat, s.lng], { icon: pill(s, `${esc(s.time)} · ${esc(price(s))}`, false, lift), keyboard: false, zIndexOffset: lift ? -lift : 0 }).addTo(pillLayer); m.on('click', () => { openStop = s.id; renderSheet(); }); };
+  groups.forEach(g => {
+    if (g.items.length === 1) single(g.items[0]);
+    else if (map.getZoom() >= 16.5) g.items.forEach((s, i) => single(s, i * 74)); // doors a few steps apart: stack the pills instead of folding
+    else {
+      const lat = g.items.reduce((a, s) => a + s.lat, 0) / g.items.length, lng = g.items.reduce((a, s) => a + s.lng, 0) / g.items.length;
+      const first = g.items[0], last = g.items[g.items.length - 1];
+      const m = L.marker([lat, lng], { icon: pill({ name: `${g.items.length} stops` }, `${esc(first.time)} to ${esc(last.time)}`), keyboard: false }).addTo(pillLayer);
+      m.on('click', () => { const bb = L.latLngBounds(g.items.map(s => [s.lat, s.lng])); map.setView(bb.getCenter(), Math.min(17, Math.max(map.getBoundsZoom(bb, false, L.point(140, 140)), map.getZoom() + 2.5))); });
+    }
+  });
+  SEED.lodging.filter(l => l.lat != null && l.nights.includes(day.date)).forEach(l => {
+    if (day.stops.some(s => s.address === l.address)) return;
+    L.marker([l.lat, l.lng], { icon: pill({ name: l.name }, 'Sleep here', true), keyboard: false }).addTo(pillLayer);
+  });
+}
+function renderSheet() {
+  const sh = document.getElementById('sheet');
+  const s = SEED.days[dayIdx].stops.find(x => x.id === openStop);
+  if (!s) { sh.hidden = true; sh.innerHTML = ''; return; }
+  sh.hidden = false;
+  const chips = [esc(s.time), esc(price(s))];
+  if (s.legToNext) chips.push(esc(legText(s)));
+  sh.innerHTML = `<div class="card"><button class="close" data-close>Close</button><h2>${esc(s.name)}</h2><div class="chips">${chips.map(c => `<span class="chip">${c}</span>`).join('')}</div>${s.why ? `<p>${esc(s.why)}</p>` : ''}${s.address ? `<p><a href="https://www.google.com/maps/search/${encodeURIComponent(s.address)}" target="_blank" rel="noopener">${esc(s.address)}</a></p>` : ''}</div>`;
+  sh.querySelector('[data-close]').onclick = () => { openStop = null; renderSheet(); };
+}
+
+/* ---------- checklist ---------- */
+function renderList() {
+  const all = SEED.days.flatMap(d => d.stops), n = all.filter(s => done[s.id]).length + SEED.bookings.filter(b => done[b.id]).length;
+  const row = (id, t, label) => `<li><input type="checkbox" id="c-${esc(id)}" data-tick="${esc(id)}"${done[id] ? ' checked' : ''}>${t ? `<span class="t">${esc(t)}</span>` : ''}<label for="c-${esc(id)}">${esc(label)}</label></li>`;
+  document.getElementById('s-list').innerHTML = `<h1>Checklist</h1><p class="sub">${n} of ${all.length + SEED.bookings.length} ticked.</p>
+    <h2>To book</h2><ul class="ticks">${SEED.bookings.map(b => row(b.id, '', b.text)).join('')}</ul>
+    ${SEED.days.map((d, i) => `<h2>${DAY_NAMES[i]} ${SHORT[i].split(' ')[1]}</h2><ul class="ticks">${d.stops.map(s => row(s.id, s.time, place(s.name))).join('')}</ul>`).join('')}`;
+  document.querySelectorAll('[data-tick]').forEach(c => c.onchange = () => { if (c.checked) done[c.dataset.tick] = true; else delete done[c.dataset.tick]; saveDone(); renderList(); });
+}
+
+/* ---------- shell ---------- */
+function render() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + screen));
+  document.querySelectorAll('.nav [data-go]').forEach(b => b.toggleAttribute('aria-current', b.dataset.go === screen) || (b.dataset.go === screen ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
+  document.body.style.overflow = screen === 'map' ? 'hidden' : '';
+  if (screen === 'today') renderToday();
+  if (screen === 'map') renderMap();
+  if (screen === 'list') renderList();
+}
+document.querySelectorAll('.nav [data-go]').forEach(b => b.onclick = () => { screen = b.dataset.go; location.hash = screen; render(); });
+const fromHash = () => { const h = location.hash.replace('#', ''); if (['today', 'map', 'list'].includes(h)) screen = h; };
+window.addEventListener('hashchange', () => { fromHash(); render(); });
+fromHash(); render();
+</script>
+</body>
+</html>
