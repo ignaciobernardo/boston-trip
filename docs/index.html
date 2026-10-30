@@ -39,7 +39,7 @@ a { color: var(--ink); }
 :focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
 
 #app { display: grid; grid-template-columns: minmax(340px, 40%) 1fr; height: 100%; }
-#map { height: 100%; background: #e6e2d4; }
+#map { height: 100%; background: #f1e9d2; }
 #panel { height: 100%; overflow-y: auto; overflow-x: hidden; border-right: 2px solid var(--ink);
   padding-block: 12px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   background:
@@ -126,14 +126,15 @@ tr.total td { font-family: var(--display); border-bottom: 0; }
 
 /* map bits */
 .leaflet-container { font-family: var(--body); }
-.pin { width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid var(--paper); box-shadow: 0 1px 3px rgba(0,0,0,.35); display: grid; place-items: center; }
-.pin span { transform: rotate(45deg); font-family: var(--display); font-size: 13px; color: #fff; line-height: 1; }
-.pin.mine { border-style: dashed; border-color: #fff; }
-.pin.done { opacity: .55; }
-.pin.active { box-shadow: 0 0 0 4px rgba(200,85,47,.5), 0 1px 3px rgba(0,0,0,.35); }
-.lodge { width: 26px; height: 26px; background: var(--paper); border: 2px solid var(--ink); border-radius: 3px; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.pin { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid #f1e9d2; box-shadow: 0 0 0 1.5px #2a2a2a; display: grid; place-items: center; }
+.pin span { font-family: var(--display); font-size: 13px; color: #f1e9d2; line-height: 1; }
+.pin.mine { border-style: dashed; }
+.pin.done { opacity: .5; }
+.pin.active { background: #c8552f !important; box-shadow: 0 0 0 1.5px #2a2a2a, 0 0 0 6px rgba(200,85,47,.35); }
+.lodge { width: 26px; height: 26px; background: #f1e9d2; border: 2px solid #2a2a2a; border-radius: 3px; display: grid; place-items: center; color: #2a2a2a; }
 .lodge svg { width: 16px; height: 16px; }
-.lodge-label { background: var(--paper); border: 1px solid var(--ink); color: var(--ink); font-size: 10px; padding: 1px 4px; white-space: nowrap; font-family: var(--display); }
+.lodge-label { background: #f1e9d2; border: 1px solid #2a2a2a; color: #2a2a2a; font-size: 10px; padding: 1px 4px; white-space: nowrap; font-family: var(--display); box-shadow: none; }
+.lodge-label::before { display: none; }
 .leaflet-popup-content-wrapper { background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); border-radius: 4px; box-shadow: 2px 2px 0 var(--ink); }
 .leaflet-popup-tip { background: var(--paper); border: 1.5px solid var(--ink); }
 .leaflet-popup-content { margin: 10px 12px; font-size: 13px; }
@@ -301,10 +302,81 @@ window.addEventListener('hashchange', () => { const hi = DAY_SLUGS.indexOf(locat
 
 /* ---------- map ---------- */
 const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([42.362, -71.09], 13);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+/* Embroidered basemap: cream paper, × fields for built-up land, hatched water,
+   thick ink roads, ladder rail. Drawn on canvas tiles from docs/basemap.json. */
+const INK = '#2a2a2a', PAPER = '#f1e9d2';
+const Stitch = L.GridLayer.extend({
+  createTile(coords) {
+    const c = document.createElement('canvas'); const size = this.getTileSize(); c.width = size.x; c.height = size.y;
+    const ctx = c.getContext('2d'); ctx.fillStyle = PAPER; ctx.fillRect(0, 0, c.width, c.height);
+    if (this.data) this.draw(ctx, coords, c.width);
+    return c;
+  },
+  draw(ctx, coords, T) {
+    const z = coords.z, scale = T * Math.pow(2, z), ox = coords.x * T, oy = coords.y * T;
+    const px = p => [(p[0] + 180) / 360 * scale - ox, (1 - Math.log(Math.tan(p[1] * Math.PI / 180) + 1 / Math.cos(p[1] * Math.PI / 180)) / Math.PI) / 2 * scale - oy];
+    const pad = 40;
+    const tb = [[(ox - pad) / scale * 360 - 180, 0], [(ox + T + pad) / scale * 360 - 180, 0]];
+    const latOf = y => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / scale))) * 180 / Math.PI;
+    const west = tb[0][0], east = tb[1][0], north = latOf(oy - pad), south = latOf(oy + T + pad);
+    const hit = f => !(f.b[2] < west || f.b[0] > east || f.b[3] < south || f.b[1] > north);
+    const path = polys => { ctx.beginPath(); polys.forEach(f => f.r.forEach(r => { r.forEach((p, i) => { const q = px(p); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); })); };
+    const k = Math.pow(2, z - 14);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = INK;
+
+    // water: diagonal hatch, aligned to world pixels so tiles agree
+    const water = this.data.water.filter(hit);
+    if (water.length) {
+      ctx.save(); path(water); ctx.clip('evenodd');
+      const s = 7; ctx.lineWidth = 1.4; ctx.beginPath();
+      const start = Math.floor((ox + oy) / s) * s - (ox + oy) - T;
+      for (let d = start; d < 2 * T + s; d += s) { ctx.moveTo(d + T + 10, -10); ctx.lineTo(d - 10, T + 10); }
+      ctx.stroke(); ctx.restore();
+    }
+    // built-up land: a field of × on a world-aligned grid
+    const built = this.data.builtup.filter(hit);
+    if (built.length && z >= 12) {
+      ctx.save(); path(built); ctx.clip('evenodd');
+      const g = z >= 15 ? 14 : 11, a = z >= 15 ? 4.2 : 3.2; ctx.lineWidth = z >= 15 ? 1.8 : 1.5; ctx.beginPath();
+      const x0 = Math.floor(ox / g) * g - ox, y0 = Math.floor(oy / g) * g - oy;
+      for (let y = y0; y < T + g; y += g) for (let x = x0; x < T + g; x += g) {
+        const cx = x + g / 2, cy = y + g / 2;
+        ctx.moveTo(cx - a, cy - a); ctx.lineTo(cx + a, cy + a); ctx.moveTo(cx + a, cy - a); ctx.lineTo(cx - a, cy + a);
+      }
+      ctx.stroke(); ctx.restore();
+    }
+    // rail and the T: a line with ladder ticks
+    const rail = this.data.rail.filter(hit);
+    rail.forEach(f => {
+      const pts = f.p.map(px); ctx.globalAlpha = f.u ? .45 : 1;
+      ctx.lineWidth = Math.max(1, 2.2 * k); ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke();
+      if (z >= 13) {
+        const step = 9, tick = Math.max(3, 4.5 * Math.min(k, 2)); ctx.lineWidth = Math.max(1, 1.8 * Math.min(k, 2)); ctx.beginPath();
+        let carry = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const [x1, y1] = pts[i], [x2, y2] = pts[i + 1]; const len = Math.hypot(x2 - x1, y2 - y1); if (!len) continue;
+          const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+          for (let d = carry; d < len; d += step) { const x = x1 + ux * d, y = y1 + uy * d; ctx.moveTo(x - uy * tick, y + ux * tick); ctx.lineTo(x + uy * tick, y - ux * tick); }
+          carry = (carry - len) % step; if (carry < 0) carry += step;
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    });
+    // roads: thick ink, heavier for bigger roads
+    const W = { m: 5.2, k: 4.8, p: 4, s: 2.9, t: 1.9 };
+    const roads = this.data.roads.filter(hit);
+    const drawClass = test => { roads.forEach(f => { if (!test(f)) return; ctx.lineWidth = Math.min(12, Math.max(1.1, W[f.c] * k)); ctx.beginPath(); f.p.forEach((p, i) => { const q = px(p); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.stroke(); }); };
+    if (z >= 13) drawClass(f => f.c === 't');
+    drawClass(f => f.c === 's'); drawClass(f => f.c === 'p'); drawClass(f => f.c === 'm' || f.c === 'k');
+  }
+});
+const stitch = new Stitch({ tileSize: 256, updateWhenZooming: false, keepBuffer: 2, attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+fetch('basemap.json').then(r => r.json()).then(d => {
+  const bb = pts => { let a = 180, b = 90, c = -180, e = -90; pts.forEach(p => { if (p[0] < a) a = p[0]; if (p[0] > c) c = p[0]; if (p[1] < b) b = p[1]; if (p[1] > e) e = p[1]; }); return [a, b, c, e]; };
+  d.water.forEach(f => f.b = bb(f.r.flat())); d.builtup.forEach(f => f.b = bb(f.r.flat())); d.roads.forEach(f => f.b = bb(f.p)); d.rail.forEach(f => f.b = bb(f.p));
+  stitch.data = d; stitch.redraw();
+}).catch(() => { toast('Basemap did not load; pins and routes still work'); });
 const stopLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const lodgeLayer = L.layerGroup().addTo(map);
@@ -329,7 +401,7 @@ map.on('click', e => {
 });
 
 function pinIcon(n, color, cls) {
-  return L.divIcon({ className: '', html: `<div class="pin ${cls}" style="background:${color}"><span>${n}</span></div>`, iconSize: [28, 28], iconAnchor: [4, 26], popupAnchor: [10, -24] });
+  return L.divIcon({ className: '', html: `<div class="pin ${cls}" style="background:${color}"><span>${n}</span></div>`, iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16] });
 }
 
 function drawMap() {
@@ -342,7 +414,7 @@ function drawMap() {
     const pts = [];
     stops.forEach((s, i) => {
       if (!s.lat) return;
-      const color = dayIdx === 7 ? dayColor(di) : typeColor(s.type);
+      const color = dayIdx === 7 ? dayColor(di) : INK;
       const cls = (s.mine ? 'mine ' : '') + (U.done[s.id] ? 'done ' : '') + (s.id === activeId ? 'active' : '');
       const m = L.marker([s.lat, s.lng], { icon: pinIcon(i + 1, color, cls) }).addTo(stopLayer);
       m.bindPopup(`<b>${esc(s.name)}</b>${s.time ? s.time + ' &middot; ' : ''}${esc((s.cost && s.cost.label) || (costOf(s) ? money(costOf(s)) : 'Free'))}<br><a href="${gmaps(s)}" target="_blank" rel="noopener">Open in Google Maps</a>`);
@@ -353,7 +425,7 @@ function drawMap() {
     });
     for (let i = 0; i < pts.length - 1; i++) {
       const mode = (pts[i].leg && pts[i].leg.mode) || 'walk';
-      L.polyline([pts[i].ll, pts[i + 1].ll], { color: dayIdx === 7 ? dayColor(di) : '#223a6b', weight: 3, opacity: .8, dashArray: mode === 'walk' ? null : '6 8' }).addTo(routeLayer);
+      L.polyline([pts[i].ll, pts[i + 1].ll], { color: dayIdx === 7 ? dayColor(di) : '#c8552f', weight: 4, opacity: .95, dashArray: mode === 'walk' ? null : '2 10', lineCap: 'round' }).addTo(routeLayer);
     }
   });
   if (bounds.length && !activeId) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
@@ -501,7 +573,7 @@ function renderBookings() {
 function renderLegend() {
   const el = document.getElementById('legend');
   if (dayIdx === 7) el.innerHTML = SEED.days.map((d, i) => `<span><i style="background:${dayColor(i)}"></i>${DAY_NAMES[i]} ${+d.date.slice(8)}</span>`).join('');
-  else el.innerHTML = TYPES.filter(t => stopsFor(SEED.days[dayIdx]).some(s => s.type === t)).map(t => `<span><i style="background:${typeColor(t)}"></i>${t}</span>`).join('') + '<span class="legend-key" style="margin-top:3px">&mdash; walk &nbsp; - - transit / ride</span>';
+  else el.innerHTML = '<span><i style="background:#c8552f;border-radius:0;height:3px"></i>walk</span><span><i style="background:#c8552f;height:3px"></i>transit / ride</span><span class="legend-key">&times;&times;&times; built-up</span><span class="legend-key">//// water</span><span class="legend-key">&#9776; rail and the T</span>';
 }
 
 /* ---------- add / edit form ---------- */
