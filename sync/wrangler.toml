@@ -1,0 +1,9 @@
+name = "boston-trip-sync"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+account_id = "42b4924619f529a17513a35253e67c52"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "KV"
+id = "d840a3a949244787ac6a0d24da000d88"
