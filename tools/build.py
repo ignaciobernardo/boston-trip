@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Assemble docs/index.html from src/index.html by inlining the seed data,
-the Chalkboard font and Leaflet's stylesheet, so the page is one file."""
-import base64, json, os, pathlib, urllib.request
+"""Assemble docs/index.html from src/index.html by inlining the seed data
+and Leaflet's stylesheet, so the page is one file."""
+import json, os, pathlib, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 src = (ROOT / 'src/index.html').read_text()
 data = json.dumps(json.load(open(ROOT / 'data/itinerary.json')), ensure_ascii=False)
-font = base64.b64encode((ROOT / 'fonts/Chalkboard-Regular.ttf').read_bytes()).decode()
 
 css_path = ROOT / 'src/leaflet.min.css'
 if not css_path.exists():
@@ -17,7 +16,6 @@ if not css_path.exists():
 leaflet_css = css_path.read_text()
 
 out = (src.replace('/*{{LEAFLET_CSS}}*/', leaflet_css)
-          .replace('{{FONT_B64}}', font)
           .replace('/*{{SEED}}*/null', data))
 os.makedirs(ROOT / 'docs', exist_ok=True)
 (ROOT / 'docs/index.html').write_text(out)

@@ -1,253 +1,129 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Boston & Cambridge</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400&family=Schibsted+Grotesk:wght@400;600&display=swap">
 <style>
 /*{{LEAFLET_CSS}}*/
-@font-face {
-  font-family: 'Chalkboard';
-  src: url(data:font/ttf;base64,{{FONT_B64}}) format('truetype');
-  font-weight: 400; font-style: normal; font-display: swap;
-}
-/* Layout: one sheet of printed paper. The panel and the map share paper and ink,
-   and a railway line runs between them. Numbered ink dots and the rust route
-   line mean the same thing in the list as on the map. Single printed look, no dark theme. */
+/* Layout: one crimson sheet, no seam. The day is a sentence on the left and the same day is a
+   route on the right. White means the trip; the city sits in a deeper crimson underneath it. */
 :root {
-  --paper: #f1e9d2;
-  --ink: #2a2a2a;
-  --ink-soft: #6a6558;
-  --rule: #cfc5a9;
-  --rust: #c8552f;
-  --display: 'Chalkboard', 'Comic Neue', 'Segoe Print', cursive;
-  --body: 'Courier Prime', 'Courier New', monospace;
-  --rail: 20px;
+  --ground: #a51c30;
+  --deep: #6f0e1c;
+  --white: #ffffff;
+  --serif: 'Newsreader', Georgia, serif;
+  --sans: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif;
   color-scheme: light;
 }
 html, body { height: 100%; }
-body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.45; overflow: hidden; font-synthesis: none; }
+body { margin: 0; background: var(--ground); color: var(--white); font-family: var(--serif); font-size: 19px; line-height: 1.4; overflow: hidden; }
 * { box-sizing: border-box; }
-h1, h2, h3, b, th { font-weight: 400; }
-button, input, select, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
 a { color: inherit; }
-:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+p, ul, h2 { margin: 0; padding: 0; font-weight: 400; }
+ul { list-style: none; }
 
-#app { display: grid; grid-template-columns: minmax(340px, 38%) 1fr; height: 100%; }
-#panel { height: 100%; min-width: 0; overflow-y: auto; overflow-x: hidden; background: var(--paper); scrollbar-color: var(--ink) transparent; scrollbar-width: thin;
-  padding-block: 22px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+#app { display: grid; grid-template-columns: minmax(380px, 40%) minmax(0, 1fr); height: 100%; }
+#panel { min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; display: grid; align-content: start; gap: 24px; scrollbar-width: thin; scrollbar-color: var(--white) transparent;
+  padding-block: 22px 48px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 #panel > * { min-width: 0; }
 #mapwrap { position: relative; min-width: 0; }
-#map { position: absolute; inset: 0; background: var(--paper); }
+#map { position: absolute; inset: 0; background: var(--ground); }
 
-/* the railway between the two halves */
-#mapwrap::before { content: ''; position: absolute; z-index: 1001; left: 0; top: 0; bottom: 0; width: var(--rail); pointer-events: none;
-  background-color: var(--paper);
-  background-image: linear-gradient(var(--ink), var(--ink)), repeating-linear-gradient(to bottom, var(--ink) 0 2.5px, transparent 2.5px 10px);
-  background-size: 3px 100%, 14px 100%; background-position: center, center; background-repeat: no-repeat; }
+.plain { display: flex; flex-wrap: wrap; gap: 2px 16px; font-family: var(--sans); font-size: 15px; }
+.plain button, .plain a { min-height: 36px; display: inline-flex; align-items: center; text-decoration: none; }
+.plain [aria-pressed="true"], .plain [aria-current="true"] { font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
 
-.masthead h1 { font-family: var(--display); font-size: 34px; line-height: 1.05; margin: 0; }
-.masthead p { margin: 6px 0 0; color: var(--ink-soft); }
+.run { font-size: clamp(30px, 2.7vw, 40px); line-height: 1.2; }
+.run a { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
+.run a.done { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.run a[aria-current="true"] { text-decoration: none; background: var(--white); color: var(--ground); }
 
-.days { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); margin: 18px 0 18px; border: 2px solid var(--ink); }
-.day-chip { position: relative; min-height: 50px; border: 0; border-left: 1px solid var(--ink); background: transparent; padding: 3px 0; line-height: 1.1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 11px; }
-.day-chip:first-child { border-left: 0; }
-.day-chip b { font-family: var(--display); font-size: 18px; }
-.day-chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-.day-chip.today::after { content: '\00d7'; position: absolute; top: 0; right: 3px; color: var(--rust); font-size: 15px; line-height: 1.2; }
+.when { font-size: clamp(76px, 8vw, 116px); line-height: 1; }
+.what { font-size: clamp(36px, 3.4vw, 50px); line-height: 1.1; text-wrap: balance; padding-top: 6px; }
+.pager { display: flex; justify-content: space-between; gap: 12px; font-size: 26px; }
+.pager button { min-height: 52px; min-width: 96px; }
+.pager button:last-child { text-align: right; }
 
-.dayhead h2 { font-family: var(--display); font-size: 23px; margin: 0 0 6px; line-height: 1.15; text-wrap: balance; }
-.dayhead p { margin: 0 0 10px; max-width: 62ch; }
-.meta { display: flex; gap: 8px 14px; flex-wrap: wrap; align-items: center; color: var(--ink-soft); }
-.btn { min-height: 40px; border: 2px solid var(--ink); background: transparent; padding: 6px 12px; font-family: var(--display); font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; }
-.btn.primary { background: var(--ink); color: var(--paper); }
-.btn.danger { border-color: var(--rust); color: var(--rust); }
-.btn.sm { min-height: 34px; padding: 2px 9px; font-size: 13px; }
-.btn svg { width: 16px; height: 16px; }
+.list { display: grid; gap: 22px; }
+.list h2 { font-family: var(--sans); font-size: 15px; font-weight: 600; padding-bottom: 2px; }
+.tick { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; font-size: 21px; line-height: 1.25; }
+.dot { width: 34px; min-height: 36px; display: block; padding-top: 3px; cursor: pointer; }
+.dot input { appearance: none; -webkit-appearance: none; display: block; width: 20px; height: 20px; margin: 0; border-radius: 50%; box-shadow: inset 0 0 0 2.5px var(--white); cursor: pointer; }
+.dot input:checked { background: var(--white); }
+.tick .txt { padding-block: 2px 8px; }
+.tick a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.tick a[aria-current="true"] { text-decoration: none; background: var(--white); color: var(--ground); }
+.tick.on .txt, .tick.on a { text-decoration: line-through; }
 
-/* timeline: the spine repeats the route line drawn on the map */
-.timeline { list-style: none; margin: 20px 0 0; padding: 0; }
-.stop { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 12px; position: relative; padding-bottom: 22px; }
-.stop:not(:last-child)::before { content: ''; position: absolute; left: 13px; top: 30px; bottom: 0; border-left: 4px solid var(--rust); }
-.stop.leg-transit:not(:last-child)::before { border-left-style: dotted; }
-.week .stop::before { display: none; }
-.num { position: relative; z-index: 1; width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2.5px solid var(--paper); box-shadow: 0 0 0 1.5px var(--ink); background: var(--ink); color: var(--paper); font-family: var(--display); font-size: 14px; display: grid; place-items: center; }
-.stop.mine .num { background: var(--paper); color: var(--ink); border: 2px dashed var(--ink); box-shadow: none; }
-.stop.active .num { background: var(--rust); }
-.stop.done .num { opacity: .45; }
-.stop.done .name { text-decoration: line-through; }
-.head { display: flex; align-items: baseline; gap: 2px 9px; flex-wrap: wrap; }
-.time { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
-.name { font-family: var(--display); font-size: 17px; background: none; border: 0; padding: 0; text-align: left; line-height: 1.2; width: 100%; order: 1; }
-.tag { color: var(--ink-soft); }
-.tag::before { content: '\00d7\00a0'; color: var(--rust); }
-.addr { font-size: 13px; color: var(--ink-soft); margin-top: 3px; }
-.why { margin: 4px 0 0; max-width: 62ch; }
-.cost { margin-top: 3px; font-variant-numeric: tabular-nums; }
-.alts { font-size: 13px; color: var(--ink-soft); margin: 5px 0 0; padding: 0; list-style: none; }
-.alts li::before { content: 'or '; }
-.leg { margin-top: 7px; font-size: 13px; color: var(--rust); display: flex; gap: 7px; align-items: flex-start; }
-.leg svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; }
-.nopin { font-size: 13px; color: var(--rust); margin-top: 3px; }
-.tools { display: none; gap: 2px; flex-wrap: wrap; margin-top: 8px; }
-.stop.active .tools, .stop:focus-within .tools { display: flex; }
-@media (hover: hover) { .stop:hover .tools { display: flex; } }
-.icon-btn { min-width: 40px; min-height: 40px; border: 0; background: transparent; display: inline-grid; place-items: center; color: var(--ink); }
-.icon-btn:disabled { opacity: .25; }
-.icon-btn[aria-pressed="true"] { color: var(--paper); background: var(--ink); }
-.icon-btn svg { width: 18px; height: 18px; }
-textarea, .form input, .form select { width: 100%; border: 0; border-bottom: 2px solid var(--ink); background: transparent; padding: 8px 2px; min-height: 42px; border-radius: 0; }
-.stop textarea { margin-top: 6px; font-size: 13px; }
-.field-label { font-size: 12px; color: var(--ink-soft); display: grid; gap: 2px; }
-
-details.section { margin-top: 18px; border-top: 4px solid var(--ink); padding-top: 4px; }
-details.section > summary { font-family: var(--display); font-size: 18px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; }
-details.section > summary::-webkit-details-marker { display: none; }
-details.section > summary::after { content: '+'; font-size: 24px; flex: 0 0 auto; }
-details.section[open] > summary::after { content: '\2212'; }
-.sum-note { font-family: var(--body); font-size: 12px; color: var(--ink-soft); margin-left: auto; text-align: right; }
-.note-text { margin: 6px 0; max-width: 62ch; color: var(--ink-soft); font-size: 13px; }
-h3 { font-family: var(--display); font-size: 16px; margin: 14px 0 4px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-td, th { padding: 4px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
-td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 10px; }
-tr.total td { font-family: var(--display); font-size: 15px; border-bottom: 0; }
-.mine-mark { color: var(--rust); }
-.check { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 4px 0; }
-.check input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--ink); }
-.check.on span { text-decoration: line-through; color: var(--ink-soft); }
-.swaps { padding: 0; margin: 6px 0; list-style: none; }
-.swaps li { margin: 8px 0; padding-left: 18px; position: relative; }
-.swaps li::before { content: '\00d7'; position: absolute; left: 2px; color: var(--rust); }
-
-.form { display: grid; gap: 10px; margin: 6px 0 8px; }
+.say { display: grid; gap: 6px; max-width: 62ch; }
+.acts { padding-top: 4px; }
+.say textarea, .sheet textarea, .sheet input, .sheet select { width: 100%; border: 0; border-radius: 0; background: var(--white); color: var(--ground); padding: 8px 10px; min-height: 44px; font-family: var(--serif); font-size: 17px; }
+.sheet { display: grid; gap: 12px; max-width: 62ch; }
+.sheet table { width: 100%; border-collapse: collapse; font-size: 17px; }
+.sheet td, .sheet th { padding: 2px 0; text-align: left; vertical-align: top; font-weight: 400; }
+.sheet td.n, .sheet th.n { text-align: right; white-space: nowrap; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.sheet h2 { font-family: var(--sans); font-size: 15px; font-weight: 600; padding-top: 6px; }
+.check { display: flex; gap: 10px; align-items: flex-start; min-height: 40px; }
+.check input { width: 20px; height: 20px; min-height: 0; margin: 4px 0 0; accent-color: var(--white); flex: 0 0 auto; }
+.check.on span { text-decoration: line-through; }
+.form { display: grid; gap: 10px; }
 .form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.form .actions, .io { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.pickhint { font-size: 13px; color: var(--rust); }
-.io textarea { font-size: 11px; min-height: 90px; }
-.confirm { border: 2px solid var(--rust); padding: 10px; margin-top: 8px; display: grid; gap: 8px; width: 100%; }
-.confirm .actions { display: flex; gap: 8px; }
-.restore { color: var(--ink-soft); font-size: 13px; margin: 10px 0 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.toast { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 14px; font-family: var(--display); z-index: 2000; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.form label { font-family: var(--sans); font-size: 14px; display: grid; gap: 3px; }
+.toast { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--white); color: var(--ground); padding: 6px 12px; font-family: var(--sans); font-size: 15px; z-index: 2000; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .toast.show { opacity: 1; }
-.err { color: var(--rust); font-size: 13px; }
 
 /* map pieces */
-.leaflet-container { font-family: var(--body); background: var(--paper); }
-.leaflet-left { left: var(--rail); }
-.pin { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--paper); box-shadow: 0 0 0 1.5px var(--ink); background: var(--ink); display: grid; place-items: center; }
-.pin span { font-family: var(--display); font-size: 13px; color: var(--paper); line-height: 1; }
-.pin.mine { background: var(--paper); border: 2px dashed var(--ink); box-shadow: none; }
-.pin.mine span { color: var(--ink); }
-.pin.done { opacity: .5; }
-.pin.active { background: var(--rust); box-shadow: 0 0 0 1.5px var(--ink), 0 0 0 7px rgba(200,85,47,.3); }
-.lodge { width: 26px; height: 26px; background: var(--paper); border: 2px solid var(--ink); display: grid; place-items: center; color: var(--ink); }
-.lodge svg { width: 16px; height: 16px; }
-.leaflet-tooltip.lodge-label { background: var(--paper); border: 0; border-radius: 0; color: var(--ink); font-size: 12px; padding: 1px 5px; white-space: nowrap; font-family: var(--display); box-shadow: none; }
-.leaflet-tooltip.lodge-label::before { display: none; }
-.leaflet-popup-content-wrapper { background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 0; box-shadow: none; }
-.leaflet-popup-tip { background: var(--paper); box-shadow: none; border: 2px solid var(--ink); }
-.leaflet-popup-content { margin: 10px 12px; font-size: 13px; }
-.leaflet-popup-content b { font-family: var(--display); font-size: 16px; display: block; }
-.leaflet-popup-content a { color: var(--rust); }
-.leaflet-container a.leaflet-popup-close-button { color: var(--ink); }
-.leaflet-control-attribution { background: var(--paper) !important; color: var(--ink-soft); font-size: 10px; }
-.leaflet-control-attribution a { color: var(--ink); }
-.leaflet-bar, .leaflet-touch .leaflet-bar { border: 2px solid var(--ink); border-radius: 0; box-shadow: none; background-clip: border-box; }
-.leaflet-bar a, .leaflet-bar a:hover { background: var(--paper); color: var(--ink); border-bottom-color: var(--ink); border-radius: 0 !important; font-family: var(--display); }
+.leaflet-container { background: var(--ground); font-family: var(--sans); }
+.hit { width: 36px; height: 36px; display: grid; place-items: center; }
+.pin { width: 16px; height: 16px; border-radius: 50%; background: var(--ground); box-shadow: 0 0 0 3px var(--white); display: block; }
+.pin.mine { border-radius: 0; }
+.pin.done { background: var(--white); width: 8px; height: 8px; }
+.pin.active { width: 24px; height: 24px; background: var(--white); box-shadow: none; }
+.lodge { width: 10px; height: 10px; background: var(--white); display: block; }
+.leaflet-tooltip.lodge-label, .leaflet-tooltip.here { border: 0; border-radius: 0; box-shadow: none; padding: 1px 5px; }
+.leaflet-tooltip.lodge-label { background: var(--ground); color: var(--white); font-family: var(--sans); font-size: 12px; white-space: nowrap; }
+.leaflet-tooltip.here { background: var(--white); color: var(--ground); font-family: var(--serif); font-size: 17px; line-height: 1.2; white-space: normal; width: max-content; max-width: 230px; }
+.leaflet-tooltip.lodge-label::before, .leaflet-tooltip.here::before { display: none; }
+.leaflet-bar, .leaflet-touch .leaflet-bar { border: 0; border-radius: 0; box-shadow: none; }
+.leaflet-bar a, .leaflet-bar a:hover, .leaflet-bar a.leaflet-disabled { background: var(--ground); color: var(--white); border: 0; border-radius: 0 !important; font-family: var(--sans); }
+.leaflet-bar a.leaflet-disabled { visibility: hidden; }
 .leaflet-touch .leaflet-bar a { width: 36px; height: 36px; line-height: 36px; }
-.leaflet-bar a.leaflet-disabled, .leaflet-bar a.leaflet-disabled:hover { background: var(--paper); color: var(--rule); }
-.legend { position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); top: 10px; z-index: 900; background: var(--paper); border: 2px solid var(--ink); padding: 8px 10px; font-size: 12px; display: grid; gap: 4px; }
-.legend span { display: flex; align-items: center; gap: 8px; }
-.legend svg { width: 26px; height: 12px; flex: 0 0 auto; }
+.leaflet-container .leaflet-control-attribution { background: var(--ground); color: var(--white); font-size: 10px; }
+.leaflet-control-attribution a { color: var(--white); }
 #viewtoggle { display: none; }
 
 @media (max-width: 760px) {
-  :root { --rail: 18px; }
-  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 45% minmax(0, 1fr); }
+  body { font-size: 18px; }
+  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 42% minmax(0, 1fr); }
   #app.full-map { grid-template-rows: minmax(0, 1fr) 0; }
   #app.full-panel { grid-template-rows: 0 minmax(0, 1fr); }
   #app.full-panel #mapwrap { overflow: hidden; }
   #mapwrap { order: 1; }
-  #panel { order: 2; padding-top: 16px; padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  #mapwrap::before { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: var(--rail);
-    background-image: linear-gradient(var(--ink), var(--ink)), repeating-linear-gradient(to right, var(--ink) 0 2.5px, transparent 2.5px 10px);
-    background-size: 100% 3px, 100% 14px; }
-  .leaflet-left { left: 0; }
-  .leaflet-bottom { bottom: var(--rail); }
-  #viewtoggle { display: inline-flex; position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); top: 10px; z-index: 900; background: var(--paper); }
-  .legend { top: auto; right: auto; bottom: calc(var(--rail) + 22px); left: max(10px, env(safe-area-inset-left, 0px)); display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 4px 8px; font-size: 11px; }
-  .legend .wide { display: none; }
+  #panel { order: 2; padding-top: 12px; padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); gap: 18px; }
+  .run { font-size: 30px; }
+  .when { font-size: 84px; }
+  .what { font-size: 36px; }
   .form .row { grid-template-columns: 1fr; }
-  .masthead h1 { font-size: 28px; }
+  #viewtoggle { display: block; position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); top: 8px; z-index: 900; min-height: 36px; padding: 0 8px; background: var(--ground); font-family: var(--sans); font-size: 15px; }
 }
+@media (pointer: coarse) { .leaflet-control-zoom { display: none; } }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;1,400&display=swap">
 
 <div id="app">
   <aside id="panel">
-    <div class="masthead">
-      <h1>Greetings from Boston</h1>
-      <p>Oct 30 to Nov 5, 2026</p>
-    </div>
-    <nav class="days" id="days" aria-label="Day"></nav>
-    <section id="daywrap"></section>
-    <details class="section" id="addsec">
-      <summary>Add an activity</summary>
-      <form class="form" id="addform" autocomplete="off">
-        <label class="field-label">Name<input id="f-name" required maxlength="80"></label>
-        <div class="row">
-          <label class="field-label">Day<select id="f-day"></select></label>
-          <label class="field-label">Time<input id="f-time" type="time"></label>
-        </div>
-        <div class="row">
-          <label class="field-label">Type<select id="f-type"></select></label>
-          <label class="field-label">Cost (USD)<input id="f-cost" type="number" min="0" step="0.5" inputmode="decimal"></label>
-        </div>
-        <label class="field-label">Address<input id="f-addr" maxlength="140" placeholder="or pick the spot on the map"></label>
-        <div class="actions">
-          <button type="button" class="btn sm" id="f-pick">Pick on map</button>
-          <span class="pickhint" id="f-pickhint"></span>
-        </div>
-        <label class="field-label">Why / note<textarea id="f-note" rows="2"></textarea></label>
-        <div class="actions">
-          <button type="submit" class="btn primary" id="f-submit">Add stop</button>
-          <button type="button" class="btn sm" id="f-cancel" hidden>Cancel edit</button>
-        </div>
-      </form>
-    </details>
-    <details class="section" id="budgetsec">
-      <summary>Budget <span id="budget-total" class="sum-note"></span></summary>
-      <div id="budget"></div>
-    </details>
-    <details class="section">
-      <summary>Book this</summary>
-      <div id="bookings"></div>
-    </details>
-    <details class="section">
-      <summary>Swaps if weather changes</summary>
-      <ul class="swaps" id="swaps"></ul>
-    </details>
-    <details class="section">
-      <summary>Your data</summary>
-      <p class="note-text">Everything you add, reorder, tick or write is saved in this browser. Export it as text to keep a copy or move it to another phone.</p>
-      <div class="io">
-        <button type="button" class="btn sm" id="io-export">Export</button>
-        <button type="button" class="btn sm" id="io-import">Import from text below</button>
-        <button type="button" class="btn sm danger" id="io-reset">Reset to original plan</button>
-      </div>
-      <div class="confirm" id="io-confirm" hidden>
-        <span>This deletes every note, added stop and tick. Sure?</span>
-        <div class="actions"><button type="button" class="btn sm danger" id="io-reset-yes">Yes, reset</button><button type="button" class="btn sm" id="io-reset-no">Keep my data</button></div>
-      </div>
-      <div class="io"><textarea id="io-text" aria-label="Exported data" placeholder="Exported JSON appears here. Paste a backup here and press Import."></textarea></div>
-      <span class="err" id="io-err"></span>
-    </details>
+    <nav class="plain" id="modes" aria-label="View"></nav>
+    <nav class="plain" id="days" aria-label="Day"></nav>
+    <div class="run" id="run"></div>
+    <div class="say" id="say"></div>
+    <nav class="plain" id="more" aria-label="More"></nav>
+    <section class="sheet" id="sheet" hidden></section>
   </aside>
   <div id="mapwrap">
     <div id="map" role="application" aria-label="Trip map"></div>
-    <button type="button" class="btn sm" id="viewtoggle" aria-label="Switch between map and list">Map</button>
-    <div class="legend" id="legend"></div>
+    <button type="button" id="viewtoggle" aria-label="Switch between map and text">Map</button>
   </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -260,32 +136,12 @@ const TYPES = ['food','cafe','bookstore','museum','walk','event','market','trans
 const DAY_NAMES = ['Fri','Sat','Sun','Mon','Tue','Wed','Thu'];
 const DAY_SLUGS = ['fri-30','sat-31','sun-1','mon-2','tue-3','wed-4','thu-5','all'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const ICONS = {
-  walk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="13" cy="4" r="1.5"/><path d="M10 22l2-7 3 3v4M7 13l3-5 3 1 3 3M12 10l-2 5"/></svg>',
-  subway: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 17l-2 4M15 17l2 4"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>',
-  bus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="14" rx="2"/><path d="M4 11h16M7 18v2M17 18v2"/></svg>',
-  ride: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l2-5h10l2 5M4 12h16v5H4z"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/></svg>',
-  lodge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9H3z"/><path d="M9 20v-6h6v6"/></svg>',
-  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>',
-  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
-  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
-  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M12 8l4 4"/></svg>',
-  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
-  note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
-  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>'
-};
-const legIcon = m => ICONS[m] || ICONS.walk;
-const KEYS = {
-  walk: '<svg viewBox="0 0 26 12"><path d="M1 6h24" stroke="#c8552f" stroke-width="4" stroke-linecap="round"/></svg>',
-  transit: '<svg viewBox="0 0 26 12"><path d="M2 6h23" stroke="#c8552f" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 7"/></svg>',
-  built: '<svg viewBox="0 0 26 12" fill="none" stroke="#2a2a2a" stroke-width="1.8"><path d="M1 2l6 7M7 2l-6 7M10 2l6 7M16 2l-6 7M19 2l6 7M25 2l-6 7"/></svg>',
-  water: '<svg viewBox="0 0 26 12" fill="none" stroke="#2a2a2a" stroke-width="1.4"><path d="M0 11L10 1M6 11L16 1M12 11L22 1M18 11L26 3"/></svg>',
-  rail: '<svg viewBox="0 0 26 12" fill="none" stroke="#2a2a2a"><path d="M0 6h26" stroke-width="2"/><path d="M3 1v10M9 1v10M15 1v10M21 1v10" stroke-width="1.6"/></svg>',
-  road: '<svg viewBox="0 0 26 12"><path d="M1 6h24" stroke="#2a2a2a" stroke-width="5"/></svg>'
-};
+const SHEETS = [['day','This day'],['add','Add a stop'],['budget','Budget'],['rain','If it rains'],['data','Backup']];
+const MODES = [['sentence','Sentence'],['one','One at a time'],['list','Checklist']];
+const MODE_WORD = { walk: 'walk', subway: 'by T', bus: 'by bus', ride: 'by Uber' };
 
 /* ---------- user layer ---------- */
-const blank = () => ({ version: 1, addedStops: [], editedStops: {}, deletedStops: [], order: {}, stopNotes: {}, dayNotes: {}, done: {}, bookingsChecked: {} });
+const blank = () => ({ version: 1, mode: 'sentence', addedStops: [], editedStops: {}, deletedStops: [], order: {}, stopNotes: {}, dayNotes: {}, done: {}, bookingsChecked: {} });
 let U = blank();
 try { const raw = localStorage.getItem(KEY); if (raw) U = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(U)); } catch (e) {} };
@@ -308,28 +164,48 @@ const gmaps = s => s.lat ? `https://www.google.com/maps/search/?api=1&query=${s.
 const money = n => '$' + (Number.isInteger(n) ? n : n.toFixed(2));
 const localYmd = () => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); };
 const legMode = s => (s.legToNext && s.legToNext.mode) || 'walk';
+const place = n => n.replace(/^(Coffee|Breakfast|Lunch|Brunch|Dinner|Dinner and last bookstore): /, '').replace(/ \(.*\)$/, '');
 const dayTitle = d => { const t = d.title.split(': ')[1]; return t[0].toUpperCase() + t.slice(1); };
+const shortDate = n => `${MONTHS[+n.slice(5, 7) - 1]} ${+n.slice(8)}`;
+const F = id => document.getElementById(id);
 
 /* ---------- state ---------- */
 let dayIdx = 0; // 0..6, 7 = all
-let activeId = null;
+let mode = U.mode || 'sentence';
+let selected = null, sheet = null, noteOpen = false, askRemove = false, askReset = false;
 let pickMode = false, pickLatLng = null, editingId = null;
-const toastEl = document.getElementById('toast');
-let toastT; function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), 1800); }
+let toastT; function toast(msg) { const t = F('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
 
 (function pickInitialDay() {
-  const hi = DAY_SLUGS.indexOf(location.hash.replace('#', ''));
-  if (hi >= 0) { dayIdx = hi; return; }
-  const i = SEED.days.findIndex(d => d.date === localYmd()); if (i >= 0) dayIdx = i;
+  const today = SEED.days.findIndex(d => d.date === localYmd()); if (today >= 0) dayIdx = today;
+  const hash = location.hash.replace('#', '');
+  if (hash === 'checklist') mode = 'list';
+  const hi = DAY_SLUGS.indexOf(hash);
+  if (hi >= 0) { dayIdx = hi; if (mode === 'list') mode = 'sentence'; }
+  if (mode === 'one' && dayIdx === 7) dayIdx = Math.max(today, 0);
 })();
-window.addEventListener('hashchange', () => { const hi = DAY_SLUGS.indexOf(location.hash.replace('#', '')); if (hi >= 0 && hi !== dayIdx) { dayIdx = hi; activeId = null; render(); } });
+window.addEventListener('hashchange', () => {
+  const hash = location.hash.replace('#', ''), hi = DAY_SLUGS.indexOf(hash);
+  if (hash === 'checklist' && mode !== 'list') setMode('list');
+  if (hi < 0) return;
+  if (mode === 'list') setMode('sentence');
+  if (hi !== dayIdx) setDay(hi);
+});
+function setDay(i) { dayIdx = i; selected = null; noteOpen = askRemove = false; location.hash = DAY_SLUGS[i]; render(); }
+function setMode(m) {
+  mode = m; U.mode = m; save(); selected = null; noteOpen = askRemove = false;
+  if (m === 'one' && dayIdx === 7) dayIdx = Math.max(SEED.days.findIndex(d => d.date === localYmd()), 0);
+  location.hash = m === 'list' ? 'checklist' : DAY_SLUGS[dayIdx];
+  render();
+}
 
 /* ---------- map ---------- */
 const map = L.map('map', { zoomControl: true, attributionControl: true, zoomSnap: 1, maxZoom: 17, maxBoundsViscosity: 1 }).setView([42.362, -71.09], 12);
+map.attributionControl.setPrefix('');
 
-/* Printed basemap: whole × stitches for built-up land, keeping clear of roads and rail,
-   diagonal hatch for water, ink roads with a paper casing, ladder rail. */
-const INK = '#2a2a2a', PAPER = '#f1e9d2', RUST = '#c8552f';
+/* The city, printed in deep crimson on crimson: whole × stitches for built-up land that keep
+   clear of roads and rail, diagonal hatch for water, solid roads, ladder rail. */
+const INK = '#6f0e1c', PAPER = '#a51c30', WHITE = '#ffffff';
 const ROAD_W = { m: 5, k: 4.6, p: 3.6, s: 2.6, t: 1.7 };
 const Stitch = L.GridLayer.extend({
   createTile(coords) {
@@ -389,7 +265,7 @@ const Stitch = L.GridLayer.extend({
       ctx.stroke(); ctx.lineCap = 'round';
     }
 
-    // rail and the T above ground: a line with ladder ticks, on a paper casing
+    // rail and the T above ground: a line with ladder ticks, on a casing of the ground color
     if (z >= 12) {
       ctx.strokeStyle = PAPER; ctx.lineWidth = 15; rail.forEach(f => line(ctx, f.p));
       ctx.strokeStyle = INK; ctx.lineWidth = railW; rail.forEach(f => line(ctx, f.p));
@@ -412,7 +288,7 @@ const Stitch = L.GridLayer.extend({
       ctx.stroke(); ctx.lineCap = 'round';
     }
 
-    // roads: paper casing first so crossings over water and hatch stay clean, then ink
+    // roads: casing first so crossings over water and hatch stay clean, then ink
     ctx.strokeStyle = PAPER; roads.forEach(f => { ctx.lineWidth = roadW(f) + 5; line(ctx, f.p); });
     ctx.strokeStyle = INK; 'tspkm'.split('').forEach(c => roads.forEach(f => { if (f.c === c) { ctx.lineWidth = roadW(f); line(ctx, f.p); } }));
   }
@@ -429,258 +305,311 @@ fetch('basemap.json').then(r => r.json()).then(d => {
   d.water.forEach(f => f.b = bb(f.r.flat())); d.builtup.forEach(f => f.b = bb(f.r.flat())); d.roads.forEach(f => f.b = bb(f.p)); d.rail.forEach(f => f.b = bb(f.p));
   EDGE = L.latLngBounds([d.bbox[1], d.bbox[0]], [d.bbox[3], d.bbox[2]]);
   fitLimits(); stitch.data = d; stitch.redraw();
-}).catch(() => { toast('The map background did not load. Pins and routes still work.'); });
+}).catch(() => { toast('The map background did not load. The route still works.'); });
 
-const stopLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const lodgeLayer = L.layerGroup().addTo(map);
+const stopLayer = L.layerGroup().addTo(map);
 const markers = {};
+let here = null;
 
 SEED.lodging.forEach(l => {
   if (!l.lat) return;
-  const day = n => `${MONTHS[+n.slice(5, 7) - 1]} ${+n.slice(8)}`;
-  const span = `${day(l.nights[0])} to ${day(l.nights[l.nights.length - 1])}`;
   const short = l.name.replace('Royal ', '').replace(' Boston', '').replace(' House on Harvard', '');
-  const icon = L.divIcon({ className: '', html: `<div class="lodge">${ICONS.lodge}</div>`, iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12] });
-  const m = L.marker([l.lat, l.lng], { icon, zIndexOffset: 500 }).addTo(lodgeLayer);
-  m.bindTooltip(short, { permanent: true, direction: 'right', offset: [14, 0], className: 'lodge-label' });
-  m.bindPopup(`<b>${esc(l.name)}</b>${esc(l.address)}<br>Nights of ${span}<br>In ${esc(l.checkIn)}, out ${esc(l.checkOut)}<br><a href="${gmaps(l)}" target="_blank" rel="noopener">Open in Google Maps</a>`);
+  const icon = L.divIcon({ className: '', html: '<div class="hit"><i class="lodge"></i></div>', iconSize: [36, 36], iconAnchor: [18, 18] });
+  const m = L.marker([l.lat, l.lng], { icon, keyboard: false }).addTo(lodgeLayer);
+  m.bindTooltip(short, { permanent: true, direction: 'right', offset: [2, 0], className: 'lodge-label' });
+  m.on('click', () => select('lodge:' + l.id, false));
 });
 
 map.on('click', e => {
   if (!pickMode) return;
   pickLatLng = e.latlng; pickMode = false;
-  F('f-pickhint').textContent = `Pinned at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
-  F('f-pick').textContent = 'Pick again';
-  F('addsec').open = true;
+  if (F('f-pickhint')) F('f-pickhint').textContent = `Pinned at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
   toast('Spot picked');
 });
 
-function pinIcon(n, cls) {
-  return L.divIcon({ className: '', html: `<div class="pin ${cls}"><span>${n}</span></div>`, iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16] });
+const allDays = () => dayIdx === 7 || mode === 'list';
+function pinIcon(cls) {
+  return L.divIcon({ className: '', html: `<div class="hit"><i class="pin ${cls}"></i></div>`, iconSize: [36, 36], iconAnchor: [18, 18] });
 }
 
 function drawMap() {
   stopLayer.clearLayers(); routeLayer.clearLayers();
   for (const k in markers) delete markers[k];
   const bounds = [];
-  const days = dayIdx === 7 ? SEED.days : [SEED.days[dayIdx]];
-  days.forEach(day => {
+  (allDays() ? SEED.days : [SEED.days[dayIdx]]).forEach(day => {
     const pts = [];
-    stopsFor(day).forEach((s, i) => {
+    stopsFor(day).forEach(s => {
       if (!s.lat) return;
-      const cls = (s.mine ? 'mine ' : '') + (U.done[s.id] ? 'done ' : '') + (s.id === activeId ? 'active' : '');
-      // in the week view each dot shows its date, so the days stay apart in one ink
-      const m = L.marker([s.lat, s.lng], { icon: pinIcon(dayIdx === 7 ? +day.date.slice(8) : i + 1, cls) }).addTo(stopLayer);
-      m.bindPopup(`<b>${esc(s.name)}</b>${s.time ? s.time + ' &middot; ' : ''}${esc((s.cost && s.cost.label) || (costOf(s) ? money(costOf(s)) : 'Free'))}<br><a href="${gmaps(s)}" target="_blank" rel="noopener">Open in Google Maps</a>`);
-      m.on('click', () => setActive(s.id, false));
+      const cls = (s.mine ? 'mine ' : '') + (U.done[s.id] ? 'done' : '');
+      const m = L.marker([s.lat, s.lng], { icon: pinIcon(cls), title: place(s.name) }).addTo(stopLayer);
+      m.on('click', () => {
+        if (mode !== 'list' && dayIdx === 7) { dayIdx = SEED.days.indexOf(day); location.hash = DAY_SLUGS[dayIdx]; selected = s.id; render(); }
+        else select(s.id, false);
+      });
       markers[s.id] = m;
       pts.push({ ll: [s.lat, s.lng], mode: legMode(s) });
       bounds.push([s.lat, s.lng]);
     });
     for (let i = 0; i < pts.length - 1; i++) {
-      L.polyline([pts[i].ll, pts[i + 1].ll], { color: RUST, weight: 4, opacity: dayIdx === 7 ? .6 : 1, dashArray: pts[i].mode === 'walk' ? null : '1 10', lineCap: 'round' }).addTo(routeLayer);
+      L.polyline([pts[i].ll, pts[i + 1].ll], { color: WHITE, weight: allDays() ? 2 : 3, opacity: 1, dashArray: pts[i].mode === 'walk' ? null : '1 9', lineCap: 'round', interactive: false }).addTo(routeLayer);
     }
   });
-  if (bounds.length && !activeId) map.fitBounds(bounds, { padding: [44, 44], maxZoom: 15 });
+  if (bounds.length) map.fitBounds(bounds, { padding: [56, 56], maxZoom: 15, animate: false });
 }
 
-function setActive(id, pan) {
-  activeId = id;
-  document.querySelectorAll('.stop').forEach(el => el.classList.toggle('active', el.dataset.id === id));
-  document.querySelectorAll('.pin').forEach(el => el.classList.remove('active'));
-  const m = markers[id];
-  if (m) {
-    m.getElement() && m.getElement().querySelector('.pin').classList.add('active');
-    if (pan) { map.panTo(m.getLatLng()); m.openPopup(); }
-  }
-  const el = document.querySelector(`.stop[data-id="${id}"]`);
-  if (el && !pan) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+function markHere(s) {
+  if (here) { here.remove(); here = null; }
+  document.querySelectorAll('.pin.active').forEach(el => el.classList.remove('active'));
+  if (!s || !s.lat) return;
+  const m = markers[s.id];
+  const el = m && m.getElement() && m.getElement().querySelector('.pin');
+  if (el) { el.classList.add('active'); m.setZIndexOffset(1000); }
+  here = L.tooltip({ permanent: true, direction: 'auto', offset: [20, 0], opacity: 1, className: 'here' }).setLatLng([s.lat, s.lng]).setContent(esc(place(s.name))).addTo(map);
 }
 
 /* ---------- panel ---------- */
+const dayStops = () => dayIdx === 7 ? [] : stopsFor(SEED.days[dayIdx]);
+const anyStop = id => SEED.days.flatMap(stopsFor).find(s => s.id === id) || null;
+const focusStop = () => mode === 'list' ? (selected ? anyStop(selected) : null) : (dayIdx === 7 || currentLodge() ? null : current());
+const current = () => { const list = dayStops(); return list.find(s => s.id === selected) || (selected && String(selected).startsWith('lodge:') ? null : list[0]) || null; };
+const currentLodge = () => selected && String(selected).startsWith('lodge:') ? SEED.lodging.find(l => 'lodge:' + l.id === selected) : null;
+
 function renderDays() {
-  const nav = document.getElementById('days'); nav.innerHTML = '';
   const today = localYmd();
-  SEED.days.forEach((d, i) => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'day-chip' + (d.date === today ? ' today' : '');
-    b.setAttribute('aria-pressed', i === dayIdx); b.innerHTML = `${DAY_NAMES[i]}<b>${+d.date.slice(8)}</b>`;
-    b.onclick = () => { dayIdx = i; activeId = null; location.hash = DAY_SLUGS[i]; render(); };
-    nav.appendChild(b);
-  });
-  const all = document.createElement('button'); all.type = 'button'; all.className = 'day-chip'; all.innerHTML = '<b>All</b>';
-  all.setAttribute('aria-pressed', dayIdx === 7); all.onclick = () => { dayIdx = 7; activeId = null; location.hash = 'all'; render(); };
-  nav.appendChild(all);
+  F('modes').innerHTML = MODES.map(([k, label]) => `<button type="button" data-mode="${k}" aria-pressed="${mode === k}">${label}</button>`).join('');
+  F('days').hidden = mode === 'list';
+  F('days').innerHTML = SEED.days.map((d, i) => `<button type="button" data-day="${i}" aria-pressed="${i === dayIdx}"${d.date === today ? ' aria-label="Today, ' + DAY_NAMES[i] + ' ' + (+d.date.slice(8)) + '"' : ''}>${DAY_NAMES[i]} ${+d.date.slice(8)}</button>`).join('') + (mode === 'one' ? '' : `<button type="button" data-day="7" aria-pressed="${dayIdx === 7}">All</button>`);
 }
 
-function renderDay() {
-  const wrap = document.getElementById('daywrap'); wrap.innerHTML = '';
+function renderRun() {
+  if (mode === 'list') {
+    const stops = SEED.days.flatMap(stopsFor);
+    const done = stops.filter(s => U.done[s.id]).length + SEED.bookings.filter(b => U.bookingsChecked[b.id]).length;
+    F('run').textContent = `${done} of ${stops.length + SEED.bookings.length} done.`;
+    return;
+  }
+  if (mode === 'one') {
+    const s = current(), lodge = currentLodge();
+    F('run').innerHTML = lodge ? `<div class="what">${esc(lodge.name)}</div>` : s ? `<div class="when">${esc(s.time || '')}</div><div class="what">${esc(place(s.name))}</div>` : '';
+    return;
+  }
   if (dayIdx === 7) {
-    const h = document.createElement('div'); h.className = 'dayhead';
-    h.innerHTML = `<h2>The whole week</h2><p>Every stop on one map. Each dot shows the date it belongs to. Tap a day to see its route.</p>`;
-    wrap.appendChild(h);
-    const ul = document.createElement('ul'); ul.className = 'timeline week';
-    SEED.days.forEach((d, i) => {
-      const li = document.createElement('li'); li.className = 'stop';
-      li.innerHTML = `<div class="num">${+d.date.slice(8)}</div><div><button class="name" type="button">${esc(dayTitle(d))}</button><p class="why">${esc(d.summary)}</p></div>`;
-      li.querySelector('.name').onclick = () => { dayIdx = i; location.hash = DAY_SLUGS[i]; render(); };
-      ul.appendChild(li);
-    });
-    wrap.appendChild(ul); return;
+    F('run').innerHTML = SEED.days.map((d, i) => `${DAY_NAMES[i]} ${+d.date.slice(8)} <a href="#${DAY_SLUGS[i]}" data-goto="${i}">${esc(dayTitle(d))}</a>`).join(', ') + '.';
+    return;
   }
-  const day = SEED.days[dayIdx]; const stops = stopsFor(day);
-  const mineSpend = stops.filter(s => s.mine).reduce((a, s) => a + costOf(s), 0);
-  const h = document.createElement('div'); h.className = 'dayhead';
-  h.innerHTML = `<h2>${esc(dayTitle(day))}</h2><p>${esc(day.summary)}</p>
-    <div class="meta"><span>${esc(day.spend)}${mineSpend ? ' + ' + money(mineSpend) + ' yours' : ''}</span>
-    <a class="btn sm" href="${day.routeUrl}" target="_blank" rel="noopener">${ICONS.map} Route in Google Maps</a></div>`;
-  wrap.appendChild(h);
+  const cur = current();
+  F('run').innerHTML = dayStops().map(s => `${esc(s.time || '')} <a href="#${DAY_SLUGS[dayIdx]}" data-stop="${esc(s.id)}"${U.done[s.id] ? ' class="done"' : ''}${cur && s.id === cur.id ? ' aria-current="true"' : ''}>${esc(place(s.name))}</a>`).join(', ') + '.';
+}
 
-  const ul = document.createElement('ul'); ul.className = 'timeline';
-  stops.forEach((s, i) => {
-    const li = document.createElement('li');
-    li.className = 'stop' + (legMode(s) === 'walk' ? '' : ' leg-transit') + (s.mine ? ' mine' : '') + (U.done[s.id] ? ' done' : '') + (s.id === activeId ? ' active' : '');
-    li.dataset.id = s.id;
-    const costTxt = (s.cost && s.cost.label) || (costOf(s) ? money(costOf(s)) : '');
-    const alts = (s.alternatives || []).map(a => `<li>${esc(a.name)}. ${esc(a.why || '')}</li>`).join('');
-    const legText = s.legToNext ? s.legToNext.text + (s.legToNext.costUsd && !s.legToNext.text.includes('$') ? ', ' + money(s.legToNext.costUsd) : '') : '';
-    const leg = s.legToNext ? `<div class="leg">${legIcon(s.legToNext.mode)}<span>${esc(legText)}</span></div>` : '';
-    const noteOpen = !!U.stopNotes[s.id];
-    li.innerHTML = `<button type="button" class="num t-focus" aria-label="Show stop ${i + 1} on the map">${i + 1}</button><div>
-      <div class="head"><span class="time">${esc(s.time || '')}</span><span class="tag">${esc(s.type)}${s.optional ? ', optional' : ''}${s.mine ? ', yours' : ''}</span><button class="name" type="button">${esc(s.name)}</button></div>
-      ${s.address ? `<div class="addr"><a href="${gmaps(s)}" target="_blank" rel="noopener">${esc(s.address)}</a></div>` : ''}
-      ${!s.lat ? `<div class="nopin">${s.mine ? 'No pin yet. Edit it and pick the spot on the map.' : 'No address yet, so no pin.'}</div>` : ''}
-      ${s.why ? `<p class="why">${esc(s.why)}</p>` : ''}${s.note ? `<p class="why">${esc(s.note)}</p>` : ''}
-      ${costTxt ? `<div class="cost">${esc(costTxt)}${s.cost && s.cost.payAhead ? ', book ahead' : ''}</div>` : ''}
-      ${alts ? `<ul class="alts">${alts}</ul>` : ''}
-      ${leg}
-      <div class="tools">
-        <button type="button" class="icon-btn t-done" aria-label="Mark done" title="Mark done" aria-pressed="${!!U.done[s.id]}">${ICONS.check}</button>
-        <button type="button" class="icon-btn t-note" aria-label="Note" title="Note" aria-pressed="${noteOpen}">${ICONS.note}</button>
-        <button type="button" class="icon-btn t-up" aria-label="Move up" title="Move up" ${i === 0 ? 'disabled' : ''}>${ICONS.up}</button>
-        <button type="button" class="icon-btn t-down" aria-label="Move down" title="Move down" ${i === stops.length - 1 ? 'disabled' : ''}>${ICONS.down}</button>
-        ${s.mine ? `<button type="button" class="icon-btn t-edit" aria-label="Edit" title="Edit">${ICONS.edit}</button>` : ''}
-        <button type="button" class="icon-btn t-del" aria-label="Remove from plan" title="Remove from plan">${ICONS.trash}</button>
-      </div>
-      <textarea class="stopnote" id="note-${esc(s.id)}" aria-label="Your note" placeholder="Your note on this stop" ${noteOpen ? '' : 'hidden'}>${esc(U.stopNotes[s.id] || '')}</textarea>
-    </div>`;
-    li.querySelector('.name').onclick = () => setActive(s.id, true);
-    li.querySelector('.t-focus').onclick = () => setActive(s.id, true);
-    li.querySelector('.t-done').onclick = () => { if (U.done[s.id]) delete U.done[s.id]; else U.done[s.id] = true; activeId = s.id; save(); render(); };
-    li.querySelector('.t-note').onclick = () => { const t = li.querySelector('.stopnote'); t.hidden = !t.hidden; if (!t.hidden) t.focus(); };
-    li.querySelector('.stopnote').oninput = e => { const v = e.target.value; if (v.trim()) U.stopNotes[s.id] = v; else delete U.stopNotes[s.id]; save(); };
-    li.querySelector('.t-up').onclick = () => move(day, stops, i, -1);
-    li.querySelector('.t-down').onclick = () => move(day, stops, i, 1);
-    li.querySelector('.t-del').onclick = () => {
-      if (li.querySelector('.confirm')) return;
-      const c = document.createElement('div'); c.className = 'confirm';
-      c.innerHTML = `<span>Remove "${esc(s.name)}" from ${DAY_NAMES[dayIdx]}?</span><div class="actions"><button type="button" class="btn sm danger">Remove</button><button type="button" class="btn sm">Keep</button></div>`;
-      c.querySelectorAll('button')[0].onclick = () => { if (s.mine) U.addedStops = U.addedStops.filter(a => a.id !== s.id); else U.deletedStops.push(s.id); save(); render(); toast('Removed'); };
-      c.querySelectorAll('button')[1].onclick = () => c.remove();
-      li.lastElementChild.appendChild(c);
+function renderChecklist() {
+  const row = (id, attr, on, body, label) => `<li class="tick${on ? ' on' : ''}"><label class="dot"><input type="checkbox" id="tick-${esc(id)}" ${attr}="${esc(id)}" ${on ? 'checked' : ''} aria-label="${esc(label)}"></label><div class="txt">${body}</div></li>`;
+  const book = `<section><h2>To book</h2><ul>${SEED.bookings.map(b => row(b.id, 'data-book', !!U.bookingsChecked[b.id], esc(b.text), b.text)).join('')}</ul></section>`;
+  const days = SEED.days.map((d, i) => `<section><h2>${DAY_NAMES[i]} ${+d.date.slice(8)}</h2><ul>${stopsFor(d).map(s => row(s.id, 'data-tick', !!U.done[s.id], `${esc(s.time || '')} <a href="#checklist" data-row="${esc(s.id)}"${s.id === selected ? ' aria-current="true"' : ''}>${esc(place(s.name))}</a>`, place(s.name))).join('')}</ul></section>`).join('');
+  return `<div class="list">${book}${days}</div>`;
+}
+
+function advance(dir) {
+  F('panel').scrollTop = 0;
+  const list = dayStops(), cur = current(), i = cur ? list.findIndex(s => s.id === cur.id) : -1;
+  if (!cur) return select(list[0] ? list[0].id : null, true);
+  const next = list[i + dir];
+  if (next) return select(next.id, true);
+  const day = dayIdx + dir;
+  if (day < 0 || day > 6) return;
+  const stops = stopsFor(SEED.days[day]);
+  dayIdx = day; selected = stops.length ? stops[dir > 0 ? 0 : stops.length - 1].id : null; noteOpen = askRemove = false;
+  location.hash = DAY_SLUGS[day]; render();
+}
+
+function renderSay() {
+  const el = F('say'), lodge = currentLodge();
+  if (mode === 'list') { el.innerHTML = renderChecklist(); return; }
+  if (dayIdx === 7) { el.innerHTML = '<p>Every stop of the week on one map.</p>'; return; }
+  if (lodge) {
+    el.innerHTML = `<p>${esc(lodge.name)}, nights of ${shortDate(lodge.nights[0])} to ${shortDate(lodge.nights[lodge.nights.length - 1])}.</p><p>In ${esc(lodge.checkIn)}, out ${esc(lodge.checkOut)}.</p><p><a href="${gmaps(lodge)}" target="_blank" rel="noopener">${esc(lodge.address)}</a></p>`;
+    return;
+  }
+  const s = current();
+  if (!s) { el.innerHTML = '<p>Nothing planned here. Add a stop below.</p>'; return; }
+  const list = dayStops(), i = list.findIndex(x => x.id === s.id);
+  const costTxt = (s.cost && s.cost.label) || (costOf(s) ? money(costOf(s)) : '');
+  const leg = s.legToNext ? s.legToNext.text : '';
+  const after = list[i + 1], one = mode === 'one';
+  const lastDay = dayIdx === 6 && !after, firstDay = dayIdx === 0 && i === 0;
+  const nextLine = after ? `Next: ${esc(place(after.name))}${s.legToNext ? `, ${s.legToNext.minutes} min ${MODE_WORD[s.legToNext.mode]}` : ''}` : (lastDay ? 'Last stop of the trip.' : 'Last stop of the day.');
+  el.innerHTML = `${!one && s.name !== place(s.name) ? `<p>${esc(s.name)}</p>` : ''}
+    ${s.why ? `<p>${esc(s.why)}</p>` : ''}${s.note ? `<p>${esc(s.note)}</p>` : ''}
+    ${costTxt ? `<p>${esc(costTxt)}${s.cost && s.cost.payAhead ? ', book ahead' : ''}</p>` : ''}
+    ${(s.alternatives || []).map(a => `<p>Or ${esc(a.name)}. ${esc(a.why || '')}</p>`).join('')}
+    ${leg && !one ? `<p>Then: ${esc(leg)}</p>` : ''}
+    ${s.address ? `<p><a href="${gmaps(s)}" target="_blank" rel="noopener">${esc(s.address)}</a></p>` : ''}
+    ${!s.lat ? `<p>${s.mine ? 'No spot on the map yet. Choose Edit to pick one.' : 'No address yet, so it is not on the map.'}</p>` : ''}
+    ${one ? `<p>${nextLine}</p><div class="pager"><button type="button" data-step="-1"${firstDay ? ' hidden' : ''}>Back</button><button type="button" data-step="1"${lastDay ? ' hidden' : ''}>${after ? 'Next' : 'Next day'}</button></div>` : ''}
+    <div class="plain acts">
+      <button type="button" data-act="done">${U.done[s.id] ? 'Not done' : 'Done'}</button>
+      <button type="button" data-act="note">Note</button>
+      ${i > 0 ? '<button type="button" data-act="earlier">Earlier</button>' : ''}
+      ${i < list.length - 1 ? '<button type="button" data-act="later">Later</button>' : ''}
+      ${s.mine ? '<button type="button" data-act="edit">Edit</button>' : ''}
+      <button type="button" data-act="remove">Remove</button>
+    </div>
+    ${askRemove ? `<div class="plain"><span>Remove this stop?</span><button type="button" data-act="remove-yes">Yes, remove</button><button type="button" data-act="remove-no">Keep it</button></div>` : ''}
+    ${noteOpen || U.stopNotes[s.id] ? `<textarea id="stop-note" rows="2" aria-label="Your note on this stop" placeholder="Your note">${esc(U.stopNotes[s.id] || '')}</textarea>` : ''}`;
+  const t = F('stop-note');
+  if (t) t.oninput = e => { const v = e.target.value; if (v.trim()) U.stopNotes[s.id] = v; else delete U.stopNotes[s.id]; save(); };
+}
+
+function renderMore() {
+  F('more').innerHTML = SHEETS.filter(([k]) => k !== 'day' || (dayIdx < 7 && mode !== 'list')).map(([k, label]) => `<button type="button" data-sheet="${k}" aria-pressed="${sheet === k}">${label}</button>`).join('');
+}
+
+function renderSheet() {
+  const el = F('sheet'); el.hidden = !sheet; if (!sheet) { el.innerHTML = ''; return; }
+  if (sheet === 'day') {
+    if (dayIdx === 7 || mode === 'list') { sheet = null; return renderSheet(); }
+    const day = SEED.days[dayIdx];
+    const mine = dayStops().filter(s => s.mine).reduce((a, s) => a + costOf(s), 0);
+    const deleted = day.stops.filter(s => U.deletedStops.includes(s.id));
+    el.innerHTML = `<p>${esc(day.summary)}</p><p>${esc(day.spend)}${mine ? ', plus ' + money(mine) + ' of yours' : ''}.</p>
+      <div class="plain"><a href="${day.routeUrl}" target="_blank" rel="noopener">Open route in Google Maps</a></div>
+      ${deleted.length ? `<div class="plain">${deleted.map(s => `<button type="button" data-restore="${esc(s.id)}">Put back ${esc(place(s.name))}</button>`).join('')}</div>` : ''}
+      <textarea id="day-note" rows="3" aria-label="Notes for this day" placeholder="Notes for this day">${esc(U.dayNotes[day.date] || '')}</textarea>`;
+    F('day-note').oninput = e => { const v = e.target.value; if (v.trim()) U.dayNotes[day.date] = v; else delete U.dayNotes[day.date]; save(); };
+  }
+  if (sheet === 'add') {
+    const s = editingId ? U.addedStops.find(a => a.id === editingId) : null;
+    const date = s ? s.date : SEED.days[Math.min(dayIdx, 6)].date;
+    el.innerHTML = `<form class="form" id="addform" autocomplete="off">
+      <label>Name<input id="f-name" required maxlength="80" value="${esc(s ? s.name : '')}"></label>
+      <div class="row"><label>Day<select id="f-day">${SEED.days.map((d, i) => `<option value="${d.date}"${d.date === date ? ' selected' : ''}>${DAY_NAMES[i]} ${+d.date.slice(8)}</option>`).join('')}</select></label>
+      <label>Time<input id="f-time" type="time" value="${esc(s ? s.time : '')}"></label></div>
+      <div class="row"><label>Type<select id="f-type">${TYPES.map(t => `<option${s && s.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+      <label>Cost in USD<input id="f-cost" type="number" min="0" step="0.5" inputmode="decimal" value="${s && costOf(s) ? costOf(s) : ''}"></label></div>
+      <label>Address<input id="f-addr" maxlength="140" value="${esc(s ? s.address : '')}"></label>
+      <div class="plain"><button type="button" id="f-pick">Pick the spot on the map</button><span id="f-pickhint">${pickLatLng ? `Pinned at ${pickLatLng.lat.toFixed(4)}, ${pickLatLng.lng.toFixed(4)}` : ''}</span></div>
+      <label>Why or a note<textarea id="f-note" rows="2">${esc(s ? s.note : '')}</textarea></label>
+      <div class="plain"><button type="submit">${s ? 'Save changes' : 'Add this stop'}</button>${s ? '<button type="button" id="f-cancel">Cancel</button>' : ''}</div></form>`;
+    F('f-pick').onclick = () => { pickMode = true; F('f-pickhint').textContent = 'Now tap the map where it is'; F('app').classList.remove('full-panel'); map.invalidateSize(); };
+    if (F('f-cancel')) F('f-cancel').onclick = () => { editingId = null; pickLatLng = null; renderSheet(); };
+    F('addform').onsubmit = submitStop;
+  }
+  if (sheet === 'budget') {
+    const acts = [];
+    SEED.days.forEach((d, i) => stopsFor(d).forEach(s => { if (costOf(s)) acts.push({ item: `${DAY_NAMES[i]}: ${place(s.name)}`, amountUsd: costOf(s), mine: s.mine }); }));
+    const total = acts.reduce((a, x) => a + x.amountUsd, 0);
+    const tLow = SEED.budget.transport.reduce((a, x) => a + x.lowUsd, 0), tHigh = SEED.budget.transport.reduce((a, x) => a + x.highUsd, 0);
+    el.innerHTML = `<p>${esc(SEED.budget.notes)}</p>
+      <h2>Priced stops</h2><table><tbody>${acts.map(a => `<tr><td>${esc(a.item)}${a.mine ? ', yours' : ''}</td><td class="n">${money(a.amountUsd)}</td></tr>`).join('')}<tr><td>Total</td><td class="n">${money(total)}</td></tr></tbody></table>
+      <h2>Paid activities, as planned</h2><table><tbody>${SEED.budget.activities.map(a => `<tr><td>${esc(a.item)}</td><td class="n">${money(a.amountUsd)}</td></tr>`).join('')}</tbody></table>
+      <h2>Transport</h2><table><thead><tr><th></th><th class="n">Low</th><th class="n">High</th></tr></thead><tbody>${SEED.budget.transport.map(t => `<tr><td>${esc(t.item)}</td><td class="n">${money(t.lowUsd)}</td><td class="n">${money(t.highUsd)}</td></tr>`).join('')}<tr><td>Total</td><td class="n">${money(tLow)}</td><td class="n">${money(tHigh)}</td></tr></tbody></table>`;
+  }
+  if (sheet === 'rain') el.innerHTML = `<ul class="sheet">${SEED.swaps.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
+  if (sheet === 'data') {
+    el.innerHTML = `<p>Your stops, notes and ticks are saved in this browser. Copy them to keep a backup or move them to another phone.</p>
+      <div class="plain"><button type="button" id="io-export">Copy my data</button><button type="button" id="io-import">Restore from the text below</button><button type="button" id="io-reset">Go back to the original plan</button></div>
+      ${askReset ? '<div class="plain"><span>This deletes everything you added.</span><button type="button" id="io-yes">Yes, go back</button><button type="button" id="io-no">Keep my data</button></div>' : ''}
+      <textarea id="io-text" rows="5" aria-label="Your data as text" placeholder="Paste a backup here"></textarea><p id="io-err"></p>`;
+    F('io-export').onclick = () => {
+      const txt = JSON.stringify(U, null, 2); F('io-text').value = txt;
+      const fallback = () => { F('io-text').focus(); F('io-text').select(); toast('Select the text and copy it'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => toast('Copied'), fallback); else fallback();
     };
-    const ed = li.querySelector('.t-edit'); if (ed) ed.onclick = () => startEdit(s);
-    ul.appendChild(li);
-  });
-  wrap.appendChild(ul);
-
-  const dn = document.createElement('label'); dn.className = 'field-label';
-  dn.innerHTML = `Notes for ${DAY_NAMES[dayIdx]} ${+day.date.slice(8)}<textarea id="daynote" rows="2" placeholder="Free notes for the day">${esc(U.dayNotes[day.date] || '')}</textarea>`;
-  dn.querySelector('textarea').oninput = e => { const v = e.target.value; if (v.trim()) U.dayNotes[day.date] = v; else delete U.dayNotes[day.date]; save(); };
-  wrap.appendChild(dn);
-
-  const deleted = day.stops.filter(s => U.deletedStops.includes(s.id));
-  if (deleted.length) {
-    const r = document.createElement('p'); r.className = 'restore';
-    r.innerHTML = `Removed: ${deleted.map(s => `<button type="button" class="btn sm" data-r="${esc(s.id)}">Restore ${esc(s.name)}</button>`).join(' ')}`;
-    r.querySelectorAll('button').forEach(b => b.onclick = () => { U.deletedStops = U.deletedStops.filter(x => x !== b.dataset.r); save(); render(); });
-    wrap.appendChild(r);
+    F('io-import').onclick = () => {
+      try { const obj = JSON.parse(F('io-text').value); if (!obj || typeof obj !== 'object' || !('addedStops' in obj)) throw new Error('That text is not a backup from this page.'); U = Object.assign(blank(), obj); mode = U.mode || 'sentence'; save(); render(); toast('Restored'); }
+      catch (err) { F('io-err').textContent = 'Could not restore it. ' + err.message; }
+    };
+    F('io-reset').onclick = () => { askReset = true; renderSheet(); };
+    if (askReset) {
+      F('io-no').onclick = () => { askReset = false; renderSheet(); };
+      F('io-yes').onclick = () => { U = blank(); mode = 'sentence'; askReset = false; save(); render(); toast('Back to the original plan'); };
+    }
   }
 }
 
-function move(day, stops, i, dir) {
-  const ids = stops.map(s => s.id); const j = i + dir; if (j < 0 || j >= ids.length) return;
-  [ids[i], ids[j]] = [ids[j], ids[i]]; U.order[day.date] = ids; activeId = stops[i].id; save(); render();
-}
-
-function renderBudget() {
-  const acts = [];
-  SEED.days.forEach((d, i) => stopsFor(d).forEach(s => { if (costOf(s)) acts.push({ item: `${DAY_NAMES[i]}: ${s.name}`, amountUsd: costOf(s), mine: s.mine }); }));
-  const actTotal = acts.reduce((a, x) => a + x.amountUsd, 0);
-  const tLow = SEED.budget.transport.reduce((a, x) => a + x.lowUsd, 0), tHigh = SEED.budget.transport.reduce((a, x) => a + x.highUsd, 0);
-  const planned = SEED.budget.activities.reduce((a, x) => a + x.amountUsd, 0);
-  document.getElementById('budget-total').textContent = `${money(actTotal)} stops, ${money(Math.round(tLow))} to ${money(Math.round(tHigh))} transport`;
-  document.getElementById('budget').innerHTML = `
-    <p class="note-text">${esc(SEED.budget.notes)}</p>
-    <h3>Priced stops, with yours</h3>
-    <table><tbody>${acts.map(a => `<tr><td>${esc(a.item)}${a.mine ? ' <span class="mine-mark">yours</span>' : ''}</td><td class="n">${money(a.amountUsd)}</td></tr>`).join('')}<tr class="total"><td>Total</td><td class="n">${money(actTotal)}</td></tr></tbody></table>
-    <h3>Paid activities, as planned</h3>
-    <table><tbody>${SEED.budget.activities.map(a => `<tr><td>${esc(a.item)}</td><td class="n">${money(a.amountUsd)}</td></tr>`).join('')}<tr class="total"><td>Total</td><td class="n">${money(planned)}</td></tr></tbody></table>
-    <h3>Transport</h3>
-    <table><thead><tr><th>Leg</th><th class="n">Low</th><th class="n">High</th></tr></thead><tbody>${SEED.budget.transport.map(t => `<tr><td>${esc(t.item)}</td><td class="n">${money(t.lowUsd)}</td><td class="n">${money(t.highUsd)}</td></tr>`).join('')}<tr class="total"><td>Total</td><td class="n">${money(tLow)}</td><td class="n">${money(tHigh)}</td></tr></tbody></table>`;
-}
-
-function renderBookings() {
-  const el = document.getElementById('bookings'); el.innerHTML = '';
-  SEED.bookings.forEach(b => {
-    const on = !!U.bookingsChecked[b.id];
-    const l = document.createElement('label'); l.className = 'check' + (on ? ' on' : '');
-    l.innerHTML = `<input type="checkbox" id="bk-${b.id}" ${on ? 'checked' : ''}><span>${esc(b.text)}</span>`;
-    l.querySelector('input').onchange = e => { if (e.target.checked) U.bookingsChecked[b.id] = true; else delete U.bookingsChecked[b.id]; save(); l.classList.toggle('on', e.target.checked); };
-    el.appendChild(l);
-  });
-  document.getElementById('swaps').innerHTML = SEED.swaps.map(s => `<li>${esc(s)}</li>`).join('');
-}
-
-function renderLegend() {
-  const key = (svg, label, cls) => `<span${cls ? ' class="wide"' : ''}>${svg}${label}</span>`;
-  document.getElementById('legend').innerHTML = key(KEYS.walk, 'Walk') + key(KEYS.transit, 'T or ride') + key(KEYS.built, 'Streets and houses', 1) + key(KEYS.water, 'Water', 1) + key(KEYS.rail, 'Railway', 1);
-}
-
-/* ---------- add / edit form ---------- */
-const F = id => document.getElementById(id);
-F('f-day').innerHTML = SEED.days.map((d, i) => `<option value="${d.date}">${DAY_NAMES[i]} ${+d.date.slice(8)}</option>`).join('');
-F('f-type').innerHTML = TYPES.map(t => `<option>${t}</option>`).join('');
-F('f-pick').onclick = () => { pickMode = true; F('f-pickhint').textContent = 'Now tap the map where it is'; document.getElementById('app').classList.remove('full-panel'); map.invalidateSize(); toast('Tap the map'); };
-F('f-cancel').onclick = () => resetForm();
-function resetForm() { editingId = null; pickLatLng = null; F('addform').reset(); F('f-pickhint').textContent = ''; F('f-pick').textContent = 'Pick on map'; F('f-submit').textContent = 'Add stop'; F('f-cancel').hidden = true; if (dayIdx < 7) F('f-day').value = SEED.days[dayIdx].date; }
-function startEdit(s) {
-  editingId = s.id; F('f-name').value = s.name; F('f-day').value = s.date; F('f-time').value = s.time || ''; F('f-type').value = s.type; F('f-cost').value = costOf(s) || ''; F('f-addr').value = s.address || ''; F('f-note').value = s.note || '';
-  pickLatLng = s.lat ? { lat: s.lat, lng: s.lng } : null; F('f-pickhint').textContent = s.lat ? `Pinned at ${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}` : '';
-  F('f-submit').textContent = 'Save changes'; F('f-cancel').hidden = false; F('addsec').open = true; F('addsec').scrollIntoView({ behavior: 'smooth' });
-}
-F('addform').onsubmit = e => {
+function submitStop(e) {
   e.preventDefault();
-  const editing = editingId;
-  const stop = { id: editing || ('user-' + Date.now().toString(36)), date: F('f-day').value, time: F('f-time').value, name: F('f-name').value.trim(), type: F('f-type').value, address: F('f-addr').value.trim(), cost: { amountUsd: Number(F('f-cost').value) || 0, label: F('f-cost').value ? money(Number(F('f-cost').value)) : '' }, note: F('f-note').value.trim(), lat: pickLatLng ? pickLatLng.lat : null, lng: pickLatLng ? pickLatLng.lng : null };
+  const editing = editingId, cost = F('f-cost').value;
+  const stop = { id: editing || ('user-' + Date.now().toString(36)), date: F('f-day').value, time: F('f-time').value, name: F('f-name').value.trim(), type: F('f-type').value, address: F('f-addr').value.trim(), cost: { amountUsd: Number(cost) || 0, label: cost ? money(Number(cost)) : '' }, note: F('f-note').value.trim(), lat: pickLatLng ? pickLatLng.lat : null, lng: pickLatLng ? pickLatLng.lng : null };
   if (editing) { const i = U.addedStops.findIndex(a => a.id === editing); if (i >= 0) U.addedStops[i] = stop; else U.addedStops.push(stop); }
   else U.addedStops.push(stop);
-  save(); const di = SEED.days.findIndex(d => d.date === stop.date); dayIdx = di; location.hash = DAY_SLUGS[di]; activeId = stop.id; resetForm(); render(); toast(editing ? 'Saved' : 'Added to ' + DAY_NAMES[di]);
-};
+  save();
+  dayIdx = SEED.days.findIndex(d => d.date === stop.date); location.hash = DAY_SLUGS[dayIdx];
+  selected = stop.id; editingId = null; pickLatLng = null; sheet = null; render();
+  toast(editing ? 'Saved' : 'Added to ' + DAY_NAMES[dayIdx]);
+}
 
-/* ---------- export / import / reset ---------- */
-F('io-export').onclick = () => {
-  const txt = JSON.stringify(U, null, 2); F('io-text').value = txt;
-  const done = () => toast('Copied to clipboard');
-  const fallback = () => { F('io-text').focus(); F('io-text').select(); toast('Select the text and copy it'); };
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
-};
-F('io-import').onclick = () => {
-  F('io-err').textContent = '';
-  try { const obj = JSON.parse(F('io-text').value); if (!obj || typeof obj !== 'object' || !('addedStops' in obj)) throw new Error('That is not an export from this page.'); U = Object.assign(blank(), obj); save(); render(); toast('Imported'); }
-  catch (err) { F('io-err').textContent = 'Import failed: ' + err.message; }
-};
-F('io-reset').onclick = () => { F('io-confirm').hidden = false; };
-F('io-reset-no').onclick = () => { F('io-confirm').hidden = true; };
-F('io-reset-yes').onclick = () => { U = blank(); save(); F('io-confirm').hidden = true; F('io-text').value = ''; render(); toast('Back to the original plan'); };
+function select(id, pan) {
+  selected = id; noteOpen = askRemove = false;
+  renderRun(); renderSay();
+  const s = focusStop();
+  markHere(s);
+  if (mode === 'list' && !pan) { const row = document.querySelector(`[data-row="${id}"]`); if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  if (pan && s && s.lat) { if (mode === 'one') map.panTo([s.lat, s.lng]); else map.panInside([s.lat, s.lng], { padding: [70, 70] }); }
+}
+
+function move(s, dir) {
+  const ids = dayStops().map(x => x.id), i = ids.indexOf(s.id), j = i + dir;
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]]; U.order[SEED.days[dayIdx].date] = ids; save(); render();
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-mode],[data-day],[data-stop],[data-goto],[data-row],[data-step],[data-sheet],[data-act],[data-restore]'); if (!b) return;
+  const d = b.dataset;
+  if (d.stop || d.goto || d.row) e.preventDefault();
+  if (d.mode) setMode(d.mode);
+  else if (d.step) advance(+d.step);
+  else if (d.row) select(d.row, true);
+  else if (d.day) setDay(+d.day);
+  else if (d.goto) setDay(+d.goto);
+  else if (d.stop) select(d.stop, true);
+  else if (d.sheet) { sheet = sheet === d.sheet ? null : d.sheet; if (sheet !== 'add') { editingId = null; pickLatLng = null; pickMode = false; } renderMore(); renderSheet(); }
+  else if (d.restore) { U.deletedStops = U.deletedStops.filter(x => x !== d.restore); save(); render(); }
+  else if (d.act) {
+    const s = current(); if (!s) return;
+    if (d.act === 'done') { if (U.done[s.id]) delete U.done[s.id]; else U.done[s.id] = true; save(); selected = s.id; render(); }
+    if (d.act === 'note') { noteOpen = !noteOpen; renderSay(); if (F('stop-note')) F('stop-note').focus(); }
+    if (d.act === 'earlier') { selected = s.id; move(s, -1); }
+    if (d.act === 'later') { selected = s.id; move(s, 1); }
+    if (d.act === 'edit') { editingId = s.id; pickLatLng = s.lat ? { lat: s.lat, lng: s.lng } : null; sheet = 'add'; renderMore(); renderSheet(); F('sheet').scrollIntoView({ behavior: 'smooth' }); }
+    if (d.act === 'remove') { askRemove = true; renderSay(); }
+    if (d.act === 'remove-no') { askRemove = false; renderSay(); }
+    if (d.act === 'remove-yes') { if (s.mine) U.addedStops = U.addedStops.filter(a => a.id !== s.id); else U.deletedStops.push(s.id); askRemove = false; selected = null; save(); render(); toast('Removed'); }
+  }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target, id = t.dataset.tick, book = t.dataset.book;
+  if (!id && !book) return;
+  const store = id ? U.done : U.bookingsChecked, key = id || book;
+  if (t.checked) store[key] = true; else delete store[key];
+  save(); t.closest('.tick').classList.toggle('on', t.checked); renderRun();
+  const pin = id && markers[id] && markers[id].getElement() && markers[id].getElement().querySelector('.pin');
+  if (pin) pin.classList.toggle('done', t.checked);
+});
+
+document.addEventListener('keydown', e => {
+  if (mode !== 'one' || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (e.key === 'ArrowRight') advance(1);
+  if (e.key === 'ArrowLeft') advance(-1);
+});
+let touch = null;
+F('panel').addEventListener('touchstart', e => { touch = e.touches[0]; }, { passive: true });
+F('panel').addEventListener('touchend', e => {
+  if (mode !== 'one' || !touch) return;
+  const t = e.changedTouches[0], dx = t.clientX - touch.clientX, dy = t.clientY - touch.clientY; touch = null;
+  if (Math.abs(dx) > 60 && Math.abs(dy) < 50) advance(dx < 0 ? 1 : -1);
+}, { passive: true });
 
 /* ---------- phone view toggle ---------- */
-const app = document.getElementById('app'); const vt = document.getElementById('viewtoggle');
+const app = F('app'), vt = F('viewtoggle');
 const VIEWS = ['', 'full-map', 'full-panel']; let vi = 0;
 const resized = () => { map.invalidateSize(); fitLimits(); };
-vt.onclick = () => { vi = (vi + 1) % 3; app.classList.remove('full-map', 'full-panel'); if (VIEWS[vi]) app.classList.add(VIEWS[vi]); vt.textContent = ['Map', 'List', 'Split'][vi]; setTimeout(resized, 50); };
+vt.onclick = () => { vi = (vi + 1) % 3; app.classList.remove('full-map', 'full-panel'); if (VIEWS[vi]) app.classList.add(VIEWS[vi]); vt.textContent = ['Map', 'Text', 'Both'][vi]; setTimeout(resized, 50); };
 window.addEventListener('resize', resized);
 
-function render() { renderDays(); renderDay(); renderBudget(); renderBookings(); renderLegend(); drawMap(); if (dayIdx < 7 && !editingId) F('f-day').value = SEED.days[dayIdx].date; }
+function render() { renderDays(); renderRun(); renderSay(); renderMore(); renderSheet(); drawMap(); markHere(focusStop()); }
 render();
 </script>
