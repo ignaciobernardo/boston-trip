@@ -60,12 +60,22 @@ ul { list-style: none; }
 #app.week { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 #app.week #mapwrap { display: none; }
 #app.week .say { max-width: none; }
-.week:not(#app) { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 32px 24px; }
-.week h2 { font-size: 34px; line-height: 1.1; padding-bottom: 12px; }
-.week li { font-size: 19px; line-height: 1.25; padding-bottom: 10px; }
-.week a { text-decoration: none; }
-.week a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.week a.done { text-decoration: line-through; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 32px 16px; padding-top: 6px; }
+.board h2 { font-size: 34px; line-height: 1.1; }
+.board .total { font-family: var(--sans); font-size: 15px; padding-bottom: 12px; }
+.blocks { min-height: 60px; }
+.blocks > li { padding-bottom: 8px; }
+.block { background: var(--white); color: var(--ground); padding: 10px 12px; display: grid; gap: 8px; font-size: 17px; line-height: 1.3; max-width: 62ch; }
+.board .block { cursor: grab; max-width: none; }
+.block .head { display: grid; gap: 1px; width: 100%; font-variant-numeric: tabular-nums; }
+.block .place { font-size: 20px; line-height: 1.15; }
+.block .place.done { text-decoration: line-through; }
+.block .body { display: grid; gap: 6px; }
+.block .plain { font-size: 14px; gap: 0 12px; }
+.block textarea, .block input { background: var(--ground); color: var(--white); }
+.leg { font-family: var(--sans); font-size: 14px; line-height: 1.3; padding: 6px 12px 2px; }
+.blocks .drop .block { background: var(--ground); color: var(--white); }
+::placeholder { color: inherit; opacity: 1; }
 .acts { padding-top: 4px; }
 .say textarea, .sheet textarea, .sheet input, .sheet select { width: 100%; border: 0; border-radius: 0; background: var(--white); color: var(--ground); padding: 8px 10px; min-height: 44px; font-family: var(--serif); font-size: 17px; }
 .sheet { display: grid; gap: 12px; max-width: 62ch; }
@@ -137,6 +147,7 @@ ul { list-style: none; }
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script>
 const SEED = /*{{SEED}}*/null;
 const KEY = 'bostonTrip.v1';
@@ -150,14 +161,18 @@ const MODE_HASH = { list: 'checklist', week: 'week' };
 const MODE_WORD = { walk: 'walk', subway: 'by T', bus: 'by bus', ride: 'by Uber' };
 
 /* ---------- user layer ---------- */
-const blank = () => ({ version: 1, mode: 'sentence', addedStops: [], editedStops: {}, deletedStops: [], order: {}, stopNotes: {}, dayNotes: {}, done: {}, bookingsChecked: {} });
+const blank = () => ({ version: 1, mode: 'sentence', addedStops: [], editedStops: {}, moved: {}, deletedStops: [], order: {}, stopNotes: {}, dayNotes: {}, done: {}, bookingsChecked: {} });
 let U = blank();
 try { const raw = localStorage.getItem(KEY); if (raw) U = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(U)); } catch (e) {} };
 
 /* ---------- merge ---------- */
+const ALL_SEED = SEED.days.flatMap(d => d.stops.map(s => Object.assign({}, s, { home: d.date })));
+const ORIG_NEXT = {};
+SEED.days.forEach(d => d.stops.forEach((s, i) => { ORIG_NEXT[s.id] = d.stops[i + 1] ? d.stops[i + 1].id : null; }));
+const dayOf = date => SEED.days.find(d => d.date === date);
 function stopsFor(day) {
-  const base = day.stops.map(s => Object.assign({}, s, U.editedStops[s.id] || {}, { mine: false }));
+  const base = ALL_SEED.filter(s => (U.moved[s.id] || s.home) === day.date).map(s => Object.assign({}, s, U.editedStops[s.id] || {}, { mine: false, date: day.date }));
   const mine = U.addedStops.filter(a => a.date === day.date).map(a => Object.assign({ type: 'walk', cost: { amountUsd: 0 } }, a, { mine: true }));
   let all = base.concat(mine).filter(s => !U.deletedStops.includes(s.id));
   const ord = U.order[day.date];
@@ -172,7 +187,19 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&am
 const gmaps = s => s.lat ? `https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address || s.name)}`;
 const money = n => '$' + (Number.isInteger(n) ? n : n.toFixed(2));
 const localYmd = () => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); };
-const legMode = s => (s.legToNext && s.legToNext.mode) || 'walk';
+const priceOf = s => (s.cost && s.cost.label) || (costOf(s) ? money(costOf(s)) : '');
+const metres = (a, b) => { const r = Math.PI / 180, x = (b.lng - a.lng) * r * Math.cos((a.lat + b.lat) / 2 * r), y = (b.lat - a.lat) * r; return Math.hypot(x, y) * 6371000; };
+/* The planned leg holds while a stop keeps its original neighbour. After a move that leg no
+   longer describes the trip, so the page estimates a walk from the distance instead. */
+function legAfter(list, i) {
+  const s = list[i], next = list[i + 1];
+  if (s.id in ORIG_NEXT && ORIG_NEXT[s.id] === (next ? next.id : null)) return s.legToNext || null;
+  if (!next || !s.lat || !next.lat) return null;
+  const min = Math.max(1, Math.round(metres(s, next) * 1.3 / 80)), far = min > 25;
+  return { mode: far ? 'ride' : 'walk', minutes: min, costUsd: 0, short: `About ${min} min walk${far ? ', or the T' : ''}`, text: `About ${min} min walk${far ? ', so probably the T or a ride' : ''}. This is an estimate, because you moved this stop.` };
+}
+const legShort = l => l.short || `${l.minutes} min ${MODE_WORD[l.mode]}${l.costUsd ? ', ' + money(l.costUsd) : ''}`;
+const dayTotal = list => list.reduce((a, s, i) => { const l = legAfter(list, i); return a + costOf(s) + (l ? l.costUsd || 0 : 0); }, 0);
 const place = n => n.replace(/^(Coffee|Breakfast|Lunch|Brunch|Dinner|Dinner and last bookstore): /, '').replace(/ \(.*\)$/, '');
 const dayTitle = d => { const t = d.title.split(': ')[1]; return t[0].toUpperCase() + t.slice(1); };
 const shortDate = n => `${MONTHS[+n.slice(5, 7) - 1]} ${+n.slice(8)}`;
@@ -181,7 +208,7 @@ const F = id => document.getElementById(id);
 /* ---------- state ---------- */
 let dayIdx = 0;
 let mode = U.mode || 'sentence';
-let selected = null, sheet = null, noteOpen = false, askRemove = false, askReset = false;
+let selected = null, openId = null, sheet = null, noteOpen = false, timeOpen = false, askRemove = false, askReset = false, askOrder = false;
 let pickMode = false, pickLatLng = null, editingId = null;
 let toastT; function toast(msg) { const t = F('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
 
@@ -200,9 +227,9 @@ window.addEventListener('hashchange', () => {
   if (MODE_HASH[mode]) setMode('sentence');
   if (hi !== dayIdx) setDay(hi);
 });
-function setDay(i) { dayIdx = i; selected = null; noteOpen = askRemove = false; location.hash = DAY_SLUGS[i]; render(); }
+function setDay(i) { dayIdx = i; selected = null; noteOpen = timeOpen = askRemove = false; location.hash = DAY_SLUGS[i]; render(); }
 function setMode(m) {
-  mode = m; U.mode = m; save(); selected = null; noteOpen = askRemove = false;
+  mode = m; U.mode = m; save(); selected = null; openId = null; noteOpen = timeOpen = askRemove = false;
   location.hash = MODE_HASH[m] || DAY_SLUGS[dayIdx];
   render();
 }
@@ -347,8 +374,8 @@ function drawMap() {
   for (const k in markers) delete markers[k];
   const bounds = [];
   (allDays() ? SEED.days : [SEED.days[dayIdx]]).forEach(day => {
-    const pts = [];
-    stopsFor(day).forEach(s => {
+    const pts = [], list = stopsFor(day);
+    list.forEach((s, i) => {
       if (!s.lat) return;
       const cls = (s.mine ? 'mine ' : '') + (U.done[s.id] ? 'done' : '');
       const m = L.marker([s.lat, s.lng], { icon: pinIcon(cls), title: place(s.name) }).addTo(stopLayer);
@@ -356,7 +383,8 @@ function drawMap() {
         select(s.id, false);
       });
       markers[s.id] = m;
-      pts.push({ ll: [s.lat, s.lng], mode: legMode(s) });
+      const leg = legAfter(list, i);
+      pts.push({ ll: [s.lat, s.lng], mode: leg ? leg.mode : 'walk' });
       bounds.push([s.lat, s.lng]);
     });
     for (let i = 0; i < pts.length - 1; i++) {
@@ -400,7 +428,8 @@ function renderRun() {
     return;
   }
   if (mode === 'week') {
-    F('run').textContent = `Oct 30 to Nov 5, ${SEED.days.flatMap(stopsFor).length} stops.`;
+    const all = SEED.days.map(stopsFor);
+    F('run').textContent = `Oct 30 to Nov 5, ${all.flat().length} stops, about ${money(Math.round(all.reduce((a, l) => a + dayTotal(l), 0)))}.`;
     return;
   }
   if (mode === 'one') {
@@ -428,7 +457,7 @@ function advance(dir) {
   const day = dayIdx + dir;
   if (day < 0 || day > 6) return;
   const stops = stopsFor(SEED.days[day]);
-  dayIdx = day; selected = stops.length ? stops[dir > 0 ? 0 : stops.length - 1].id : null; noteOpen = askRemove = false;
+  dayIdx = day; selected = stops.length ? stops[dir > 0 ? 0 : stops.length - 1].id : null; noteOpen = timeOpen = askRemove = false;
   location.hash = DAY_SLUGS[day]; render();
 }
 
@@ -436,7 +465,9 @@ function renderSay() {
   const el = F('say'), lodge = currentLodge();
   if (mode === 'list') { el.innerHTML = renderChecklist(); return; }
   if (mode === 'week') {
-    el.innerHTML = `<div class="week">${SEED.days.map((d, i) => `<section><h2>${DAY_NAMES[i]} ${+d.date.slice(8)}</h2><ul>${stopsFor(d).map(s => `<li><a href="#${DAY_SLUGS[i]}" data-week="${esc(s.id)}" data-index="${i}"${U.done[s.id] ? ' class="done"' : ''}>${esc(s.time || '')} ${esc(place(s.name))}</a></li>`).join('')}</ul></section>`).join('')}</div>`;
+    el.innerHTML = `<p>Click a block to open it. Drag it to move it, on a phone hold it first.</p><div class="board">${SEED.days.map((d, i) => { const list = stopsFor(d);
+      return `<section><h2>${DAY_NAMES[i]} ${+d.date.slice(8)}</h2><p class="total">About ${money(Math.round(dayTotal(list)))}</p><ul class="blocks" data-date="${d.date}">${list.map((s, n) => `<li data-id="${esc(s.id)}">${blockHTML(s, list, n, true)}</li>`).join('')}</ul></section>`; }).join('')}</div>`;
+    wireFields(); wireBoards();
     return;
   }
   if (lodge) {
@@ -446,35 +477,98 @@ function renderSay() {
   const s = current();
   if (!s) { el.innerHTML = '<p>Nothing planned here. Add a stop below.</p>'; return; }
   const list = dayStops(), i = list.findIndex(x => x.id === s.id);
-  const costTxt = (s.cost && s.cost.label) || (costOf(s) ? money(costOf(s)) : '');
-  const leg = s.legToNext ? s.legToNext.text : '';
-  const after = list[i + 1], one = mode === 'one';
-  const lastDay = dayIdx === 6 && !after, firstDay = dayIdx === 0 && i === 0;
-  const nextLine = after ? `Next: ${esc(place(after.name))}${s.legToNext ? `, ${s.legToNext.minutes} min ${MODE_WORD[s.legToNext.mode]}` : ''}` : (lastDay ? 'Last stop of the trip.' : 'Last stop of the day.');
-  el.innerHTML = `${!one && s.name !== place(s.name) ? `<p>${esc(s.name)}</p>` : ''}
-    ${s.why ? `<p>${esc(s.why)}</p>` : ''}${s.note ? `<p>${esc(s.note)}</p>` : ''}
-    ${costTxt ? `<p>${esc(costTxt)}${s.cost && s.cost.payAhead ? ', book ahead' : ''}</p>` : ''}
+  if (mode === 'one') {
+    const after = list[i + 1], leg = legAfter(list, i), lastDay = dayIdx === 6 && !after, firstDay = dayIdx === 0 && i === 0;
+    const nextLine = after ? `Next: ${esc(place(after.name))}${leg ? `, ${esc(legShort(leg))}` : ''}` : (lastDay ? 'Last stop of the trip.' : 'Last stop of the day.');
+    el.innerHTML = `${facts(s)}<p>${nextLine}</p><div class="pager"><button type="button" data-step="-1"${firstDay ? ' hidden' : ''}>Back</button><button type="button" data-step="1"${lastDay ? ' hidden' : ''}>${after ? 'Next' : 'Next day'}</button></div>${controls(s, list, i)}`;
+  } else {
+    el.innerHTML = blockHTML(s, list, i, false);
+  }
+  wireFields();
+}
+
+/* One stop's reading text, shared by the block and the one-at-a-time view. */
+function facts(s) {
+  const price = priceOf(s);
+  return `${s.why ? `<p>${esc(s.why)}</p>` : ''}${s.note ? `<p>${esc(s.note)}</p>` : ''}
+    ${price ? `<p>${esc(price)}${s.cost && s.cost.payAhead ? ', book ahead' : ''}</p>` : ''}
     ${(s.alternatives || []).map(a => `<p>Or ${esc(a.name)}. ${esc(a.why || '')}</p>`).join('')}
-    ${leg && !one ? `<p>Then: ${esc(leg)}</p>` : ''}
     ${s.address ? `<p><a href="${gmaps(s)}" target="_blank" rel="noopener">${esc(s.address)}</a></p>` : ''}
-    ${!s.lat ? `<p>${s.mine ? 'No spot on the map yet. Choose Edit to pick one.' : 'No address yet, so it is not on the map.'}</p>` : ''}
-    ${one ? `<p>${nextLine}</p><div class="pager"><button type="button" data-step="-1"${firstDay ? ' hidden' : ''}>Back</button><button type="button" data-step="1"${lastDay ? ' hidden' : ''}>${after ? 'Next' : 'Next day'}</button></div>` : ''}
-    <div class="plain acts">
+    ${!s.lat ? `<p>${s.mine ? 'No spot on the map yet. Choose Edit to pick one.' : 'No address yet, so it is not on the map.'}</p>` : ''}`;
+}
+
+function controls(s, list, i) {
+  const week = mode === 'week';
+  return `<div class="plain acts">
       <button type="button" data-act="done">${U.done[s.id] ? 'Not done' : 'Done'}</button>
       <button type="button" data-act="note">Note</button>
-      ${i > 0 ? '<button type="button" data-act="earlier">Earlier</button>' : ''}
-      ${i < list.length - 1 ? '<button type="button" data-act="later">Later</button>' : ''}
+      <button type="button" data-act="time">Time</button>
+      ${!week && i > 0 ? '<button type="button" data-act="earlier">Earlier</button>' : ''}
+      ${!week && i < list.length - 1 ? '<button type="button" data-act="later">Later</button>' : ''}
+      ${week ? '<button type="button" data-act="map">Map</button>' : ''}
       ${s.mine ? '<button type="button" data-act="edit">Edit</button>' : ''}
       <button type="button" data-act="remove">Remove</button>
     </div>
     ${askRemove ? `<div class="plain"><span>Remove this stop?</span><button type="button" data-act="remove-yes">Yes, remove</button><button type="button" data-act="remove-no">Keep it</button></div>` : ''}
+    ${timeOpen ? `<input type="time" id="stop-time" aria-label="Time of this stop" value="${esc(s.time || '')}">` : ''}
     ${noteOpen || U.stopNotes[s.id] ? `<textarea id="stop-note" rows="2" aria-label="Your note on this stop" placeholder="Your note">${esc(U.stopNotes[s.id] || '')}</textarea>` : ''}`;
-  const t = F('stop-note');
+}
+
+function blockHTML(s, list, i, week) {
+  const open = !week || openId === s.id, leg = legAfter(list, i), price = priceOf(s);
+  const name = `<span class="place${U.done[s.id] ? ' done' : ''}">${esc(open ? s.name : place(s.name))}</span>`;
+  const top = `<span>${esc(s.time || '')}</span>${name}${price && !open ? `<span>${esc(price)}</span>` : ''}`;
+  const head = week ? `<button type="button" class="head" data-open="${esc(s.id)}" aria-expanded="${open}">${top}</button>` : `<div class="head">${top}</div>`;
+  const body = open ? `<div class="body">${facts(s)}${leg ? `<p>Then: ${esc(leg.text)}</p>` : ''}</div>${controls(s, list, i)}` : '';
+  return `<div class="block">${head}${body}</div>${week && leg && !open ? `<p class="leg">${esc(legShort(leg))}</p>` : ''}`;
+}
+
+const target = () => mode === 'week' ? (openId ? anyStop(openId) : null) : current();
+
+function setTime(s, v) {
+  const mine = U.addedStops.find(a => a.id === s.id);
+  if (mine) mine.time = v; else U.editedStops[s.id] = Object.assign({}, U.editedStops[s.id], { time: v });
+  save();
+}
+
+function wireFields() {
+  const s = target(); if (!s) return;
+  const t = F('stop-note'), c = F('stop-time');
   if (t) t.oninput = e => { const v = e.target.value; if (v.trim()) U.stopNotes[s.id] = v; else delete U.stopNotes[s.id]; save(); };
+  if (c) c.onchange = e => { if (e.target.value) { setTime(s, e.target.value); renderRun(); renderSay(); } };
+}
+
+/* Drag and drop for the week: Sortable handles mouse and touch, the page stores the result. */
+let boards = [], droppedAt = 0;
+function wireBoards() {
+  boards.forEach(b => b.destroy()); boards = [];
+  if (!window.Sortable) return;
+  document.querySelectorAll('.blocks').forEach(ul => boards.push(new Sortable(ul, {
+    group: 'week', animation: 120, delay: 180, delayOnTouchOnly: true, touchStartThreshold: 6,
+    forceFallback: true, fallbackOnBody: true, fallbackOpacity: 1, ghostClass: 'drop',
+    filter: 'a, textarea, input, .acts, .acts *', preventOnFilter: false, onEnd: dropped
+  })));
+}
+function dropped(e) {
+  droppedAt = Date.now();
+  const to = e.to.dataset.date, from = e.from.dataset.date, id = e.item.dataset.id;
+  if (to === from && e.oldIndex === e.newIndex) return;
+  const ids = ul => [...ul.children].map(li => li.dataset.id);
+  U.order[to] = ids(e.to); U.order[from] = ids(e.from);
+  if (to !== from) {
+    const mine = U.addedStops.find(a => a.id === id);
+    if (mine) mine.date = to;
+    else if (ALL_SEED.find(x => x.id === id).home === to) delete U.moved[id];
+    else U.moved[id] = to;
+  }
+  save();
+  setTimeout(() => { renderRun(); renderSay(); }, 0); // let Sortable finish before its lists are replaced
 }
 
 function renderMore() {
-  F('more').innerHTML = SHEETS.filter(([k]) => k !== 'day' || !MODE_HASH[mode]).map(([k, label]) => `<button type="button" data-sheet="${k}" aria-pressed="${sheet === k}">${label}</button>`).join('');
+  F('more').innerHTML = SHEETS.filter(([k]) => k !== 'day' || !MODE_HASH[mode]).map(([k, label]) => `<button type="button" data-sheet="${k}" aria-pressed="${sheet === k}">${label}</button>`).join('')
+    + '<button type="button" data-reset="ask">Reset order</button>'
+    + (askOrder ? '<span>Put every stop back in its original day, order and time? Notes, ticks and your own stops stay.</span><button type="button" data-reset="yes">Yes, reset</button><button type="button" data-reset="no">Keep my order</button>' : '');
 }
 
 function renderSheet() {
@@ -553,7 +647,7 @@ function submitStop(e) {
 }
 
 function select(id, pan) {
-  selected = id; noteOpen = askRemove = false;
+  selected = id; noteOpen = timeOpen = askRemove = false;
   renderRun(); renderSay();
   const s = focusStop();
   markHere(s);
@@ -562,17 +656,26 @@ function select(id, pan) {
 }
 
 function move(s, dir) {
-  const ids = dayStops().map(x => x.id), i = ids.indexOf(s.id), j = i + dir;
+  const ids = stopsFor(dayOf(s.date)).map(x => x.id), i = ids.indexOf(s.id), j = i + dir;
   if (j < 0 || j >= ids.length) return;
-  [ids[i], ids[j]] = [ids[j], ids[i]]; U.order[SEED.days[dayIdx].date] = ids; save(); render();
+  [ids[i], ids[j]] = [ids[j], ids[i]]; U.order[s.date] = ids; save(); render();
 }
 
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-mode],[data-day],[data-stop],[data-row],[data-week],[data-step],[data-sheet],[data-act],[data-restore]'); if (!b) return;
+  const b = e.target.closest('[data-mode],[data-day],[data-stop],[data-row],[data-open],[data-reset],[data-step],[data-sheet],[data-act],[data-restore]'); if (!b) return;
   const d = b.dataset;
-  if (d.stop || d.row || d.week) e.preventDefault();
+  if (d.stop || d.row) e.preventDefault();
   if (d.mode) setMode(d.mode);
-  else if (d.week) { mode = U.mode = 'sentence'; save(); dayIdx = +d.index; selected = d.week; location.hash = DAY_SLUGS[dayIdx]; render(); }
+  else if (d.open) {
+    if (Date.now() - droppedAt < 250) return; // a drop is not a click
+    openId = openId === d.open ? null : d.open; noteOpen = timeOpen = askRemove = false; renderSay();
+    const again = document.querySelector(`[data-open="${d.open}"]`); if (again) again.focus({ preventScroll: true });
+  }
+  else if (d.reset) {
+    askOrder = d.reset === 'ask';
+    if (d.reset === 'yes') { U.order = {}; U.moved = {}; U.editedStops = {}; save(); render(); toast('Back in the original order'); }
+    else renderMore();
+  }
   else if (d.step) advance(+d.step);
   else if (d.row) select(d.row, true);
   else if (d.day) setDay(+d.day);
@@ -580,7 +683,9 @@ document.addEventListener('click', e => {
   else if (d.sheet) { sheet = sheet === d.sheet ? null : d.sheet; if (sheet !== 'add') { editingId = null; pickLatLng = null; pickMode = false; } renderMore(); renderSheet(); }
   else if (d.restore) { U.deletedStops = U.deletedStops.filter(x => x !== d.restore); save(); render(); }
   else if (d.act) {
-    const s = current(); if (!s) return;
+    const s = target(); if (!s) return;
+    if (d.act === 'time') { timeOpen = !timeOpen; renderSay(); if (F('stop-time')) F('stop-time').focus(); }
+    if (d.act === 'map') { mode = U.mode = 'sentence'; save(); openId = null; dayIdx = SEED.days.indexOf(dayOf(s.date)); selected = s.id; location.hash = DAY_SLUGS[dayIdx]; render(); }
     if (d.act === 'done') { if (U.done[s.id]) delete U.done[s.id]; else U.done[s.id] = true; save(); selected = s.id; render(); }
     if (d.act === 'note') { noteOpen = !noteOpen; renderSay(); if (F('stop-note')) F('stop-note').focus(); }
     if (d.act === 'earlier') { selected = s.id; move(s, -1); }
@@ -588,7 +693,7 @@ document.addEventListener('click', e => {
     if (d.act === 'edit') { editingId = s.id; pickLatLng = s.lat ? { lat: s.lat, lng: s.lng } : null; sheet = 'add'; renderMore(); renderSheet(); F('sheet').scrollIntoView({ behavior: 'smooth' }); }
     if (d.act === 'remove') { askRemove = true; renderSay(); }
     if (d.act === 'remove-no') { askRemove = false; renderSay(); }
-    if (d.act === 'remove-yes') { if (s.mine) U.addedStops = U.addedStops.filter(a => a.id !== s.id); else U.deletedStops.push(s.id); askRemove = false; selected = null; save(); render(); toast('Removed'); }
+    if (d.act === 'remove-yes') { if (s.mine) U.addedStops = U.addedStops.filter(a => a.id !== s.id); else U.deletedStops.push(s.id); askRemove = false; selected = null; openId = null; save(); render(); toast('Removed'); }
   }
 });
 
