@@ -164,7 +164,41 @@ const MODE_WORD = { walk: 'walk', subway: 'by T', bus: 'by bus', ride: 'by Uber'
 const blank = () => ({ version: 1, mode: 'sentence', addedStops: [], editedStops: {}, moved: {}, deletedStops: [], order: {}, stopNotes: {}, dayNotes: {}, done: {}, bookingsChecked: {} });
 let U = blank();
 try { const raw = localStorage.getItem(KEY); if (raw) U = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(U)); } catch (e) {} };
+
+/* Shared state: one copy for everyone on the trip, kept in a Cloudflare KV behind a tiny
+   worker. The browser copy is a cache and an offline fallback; the newer `updatedAt` wins.
+   `mode` stays per device, since two people can look at different views. */
+const SYNC = 'https://boston-trip-sync.ignacioramosbernardo.workers.dev/s/k7v2q9';
+let syncT = null, lastSeen = 0, syncing = false;
+const local = () => { try { localStorage.setItem(KEY, JSON.stringify(U)); } catch (e) {} };
+const save = () => {
+  U.updatedAt = Date.now(); local();
+  clearTimeout(syncT);
+  syncT = setTimeout(() => push(), 700);
+};
+async function push() {
+  try {
+    const body = Object.assign({}, U); delete body.mode;
+    const r = await fetch(SYNC, { method: 'PUT', body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(r.status);
+    lastSeen = U.updatedAt;
+  } catch (e) { toast('Saved on this phone only, no signal'); }
+}
+async function pull(first) {
+  if (syncing || document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  syncing = true;
+  try {
+    const r = await fetch(SYNC, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
+    const remote = await r.json();
+    const ra = remote.updatedAt || 0, la = U.updatedAt || 0;
+    if (ra > la) { U = Object.assign(blank(), remote, { mode: U.mode }); mode = U.mode || mode; local(); lastSeen = ra; render(); if (!first) toast('Plan updated from the other phone'); }
+    else if (la > ra) push();
+  } catch (e) { if (!first) toast('No signal, showing the copy on this phone'); }
+  syncing = false;
+}
+pull(true);
+setInterval(() => { if (document.visibilityState === 'visible') pull(false); }, 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pull(false); });
 
 /* ---------- merge ---------- */
 const ALL_SEED = SEED.days.flatMap(d => d.stops.map(s => Object.assign({}, s, { home: d.date })));
@@ -229,7 +263,7 @@ window.addEventListener('hashchange', () => {
 });
 function setDay(i) { dayIdx = i; selected = null; noteOpen = timeOpen = askRemove = false; location.hash = DAY_SLUGS[i]; render(); }
 function setMode(m) {
-  mode = m; U.mode = m; save(); selected = null; openId = null; noteOpen = timeOpen = askRemove = false;
+  mode = m; U.mode = m; local(); selected = null; openId = null; noteOpen = timeOpen = askRemove = false;
   location.hash = MODE_HASH[m] || DAY_SLUGS[dayIdx];
   render();
 }
@@ -613,7 +647,7 @@ function renderSheet() {
   }
   if (sheet === 'rain') el.innerHTML = `<ul class="sheet">${SEED.swaps.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
   if (sheet === 'data') {
-    el.innerHTML = `<p>Your stops, notes and ticks are saved in this browser. Copy them to keep a backup or move them to another phone.</p>
+    el.innerHTML = `<p>Your stops, notes, ticks and order are shared: both phones see the same plan within a few seconds, and this one keeps a copy for when there is no signal. Copy the text below to keep a backup.</p>
       <div class="plain"><button type="button" id="io-export">Copy my data</button><button type="button" id="io-import">Restore from the text below</button><button type="button" id="io-reset">Go back to the original plan</button></div>
       ${askReset ? '<div class="plain"><span>This deletes everything you added.</span><button type="button" id="io-yes">Yes, go back</button><button type="button" id="io-no">Keep my data</button></div>' : ''}
       <textarea id="io-text" rows="5" aria-label="Your data as text" placeholder="Paste a backup here"></textarea><p id="io-err"></p>`;
@@ -685,7 +719,7 @@ document.addEventListener('click', e => {
   else if (d.act) {
     const s = target(); if (!s) return;
     if (d.act === 'time') { timeOpen = !timeOpen; renderSay(); if (F('stop-time')) F('stop-time').focus(); }
-    if (d.act === 'map') { mode = U.mode = 'sentence'; save(); openId = null; dayIdx = SEED.days.indexOf(dayOf(s.date)); selected = s.id; location.hash = DAY_SLUGS[dayIdx]; render(); }
+    if (d.act === 'map') { mode = U.mode = 'sentence'; local(); openId = null; dayIdx = SEED.days.indexOf(dayOf(s.date)); selected = s.id; location.hash = DAY_SLUGS[dayIdx]; render(); }
     if (d.act === 'done') { if (U.done[s.id]) delete U.done[s.id]; else U.done[s.id] = true; save(); selected = s.id; render(); }
     if (d.act === 'note') { noteOpen = !noteOpen; renderSay(); if (F('stop-note')) F('stop-note').focus(); }
     if (d.act === 'earlier') { selected = s.id; move(s, -1); }

@@ -201,10 +201,10 @@
     },
     {
       "date": "2026-10-31",
-      "title": "Sat Oct 31: Mount Auburn, Harvard, Athenaeum, Halloween on Beacon Hill",
-      "summary": "Cambridge in the morning, Beacon Hill from early afternoon through Halloween night. The Athenaeum closes 17:00 Saturdays and is closed Sundays.",
-      "spend": "~$12 (or $40) plus food and ~$5 in T fares",
-      "routeUrl": "https://www.google.com/maps/dir/Simon%27s+Coffee+Shop,+1736+Massachusetts+Ave,+Cambridge,+MA/Mount+Auburn+Cemetery,+580+Mount+Auburn+St,+Cambridge,+MA/Harvard+Art+Museums,+32+Quincy+St,+Cambridge,+MA/Pinocchio%27s+Pizza,+74+Winthrop+St,+Cambridge,+MA/Boston+Athenaeum,+10+1%2F2+Beacon+St,+Boston,+MA/Panificio,+144+Charles+St,+Boston,+MA/Acorn+St,+Boston,+MA/Boston+Public+Garden,+Boston,+MA/Louisburg+Square,+Boston,+MA/Charles%2FMGH+Station,+Boston,+MA",
+      "title": "Sat Oct 31: Mount Auburn, Harvard, Halloween on Beacon Hill",
+      "summary": "Cambridge in the morning, Beacon Hill from mid afternoon through Halloween night.",
+      "spend": "Food and ~$5 in T fares",
+      "routeUrl": "https://www.google.com/maps/dir/Simon%27s+Coffee+Shop,+1736+Massachusetts+Ave,+Cambridge,+MA/Mount+Auburn+Cemetery,+580+Mount+Auburn+St,+Cambridge,+MA/Harvard+Art+Museums,+32+Quincy+St,+Cambridge,+MA/Pinocchio%27s+Pizza,+74+Winthrop+St,+Cambridge,+MA/Panificio,+144+Charles+St,+Boston,+MA/Acorn+St,+Boston,+MA/Boston+Public+Garden,+Boston,+MA/Louisburg+Square,+Boston,+MA/Charles%2FMGH+Station,+Boston,+MA",
       "stops": [
         {
           "id": "sat-coffee",
@@ -293,34 +293,12 @@
           },
           "legToNext": {
             "mode": "subway",
-            "minutes": 15,
+            "minutes": 20,
             "costUsd": 2.4,
-            "text": "Red Line Harvard to Park Street, ~12 min + 3 min walk"
+            "text": "Red Line Harvard to Charles/MGH, ~15 min, then 5 min walk down Charles St"
           },
           "lat": 42.3720032,
           "lng": -71.1202684,
-          "geocodeStatus": "ok"
-        },
-        {
-          "id": "sat-athenaeum",
-          "time": "14:00",
-          "name": "Boston Athenaeum",
-          "type": "museum",
-          "address": "10 1/2 Beacon St, Boston, MA",
-          "why": "Founded 1807. The ~$12 tour covers the building's story; the 5th-floor reading room is guaranteed only with the $40 day pass. Granary Burying Ground next door.",
-          "cost": {
-            "label": "~$12 tour or $40 day pass",
-            "amountUsd": 12,
-            "payAhead": true
-          },
-          "legToNext": {
-            "mode": "walk",
-            "minutes": 10,
-            "costUsd": 0,
-            "text": "Walk past the State House up to Charles St, ~10 min"
-          },
-          "lat": 42.3579,
-          "lng": -71.0618,
           "geocodeStatus": "ok"
         },
         {
@@ -688,7 +666,7 @@
     {
       "date": "2026-11-03",
       "title": "Tue Nov 3: MIT, Brattle, North End, then the film",
-      "summary": "MIT in the morning, downtown and the North End in the afternoon, You Can See Everything at night, 15 minutes' walk from Ginkgo House.",
+      "summary": "MIT in the morning, downtown and the North End in the afternoon, You Can See Everything at 18:35, 15 minutes' walk from Ginkgo House.",
       "spend": "About $25 in activities, $10 ride, $7 in T fares",
       "routeUrl": "https://www.google.com/maps/dir/Royal+Sonesta+Boston,+40+Edwin+Land+Blvd,+Cambridge,+MA/288+Harvard+St,+Cambridge,+MA+02139/MIT+Museum,+314+Main+St,+Cambridge,+MA/Ray+and+Maria+Stata+Center,+32+Vassar+St,+Cambridge,+MA/Killian+Court,+Cambridge,+MA/Kresge+Auditorium,+48+Massachusetts+Ave,+Cambridge,+MA/Flour+Bakery,+190+Massachusetts+Ave,+Cambridge,+MA/Brattle+Book+Shop,+9+West+St,+Boston,+MA/Boston+Public+Market,+100+Hanover+St,+Boston,+MA/Old+North+Church,+193+Salem+St,+Boston,+MA/Landmark+Kendall+Square+Cinema,+355+Binney+St,+Cambridge,+MA/288+Harvard+St,+Cambridge,+MA+02139",
       "stops": [
@@ -884,7 +862,7 @@
         },
         {
           "id": "tue-dinner",
-          "time": "17:45",
+          "time": "17:00",
           "name": "Dinner: The Friendly Toast or Flat Top Johnny's",
           "type": "food",
           "address": "One Kendall Square, Cambridge, MA",
@@ -898,7 +876,7 @@
             "mode": "walk",
             "minutes": 2,
             "costUsd": 0,
-            "text": "2 min walk"
+            "text": "2 min walk; be seated by 18:25"
           },
           "lat": 42.3668,
           "lng": -71.0905,
@@ -906,13 +884,13 @@
         },
         {
           "id": "tue-film",
-          "time": "19:00",
+          "time": "18:35",
           "name": "You Can See Everything (Landmark Kendall Square Cinema)",
           "type": "cinema",
           "address": "355 Binney St, Cambridge, MA",
-          "why": "15 min walk from Ginkgo, $7 Tuesdays with free loyalty signup (usual $16.50 to $18), and the only free evening without a 05:00 alarm. 2 h 54 min. Nov 3 times not posted yet.",
+          "why": "Confirmed for Tue Nov 3 at 15:00 and 18:35 at Landmark Kendall, reserved seating. 2 h 54 min, out around 21:30. 15 min walk from Ginkgo. $7 Tuesdays with the free loyalty signup, if still running; otherwise $16.50 to $18.",
           "cost": {
-            "label": "$7 Tue (loyalty)",
+            "label": "$7 Tue (loyalty) or ~$17",
             "amountUsd": 7,
             "payAhead": true
           },
@@ -1154,10 +1132,6 @@
         "amountUsd": 7
       },
       {
-        "item": "Boston Athenaeum tour (or $40 day pass)",
-        "amountUsd": 12
-      },
-      {
         "item": "Gardner Museum, student",
         "amountUsd": 15
       },
@@ -1198,7 +1172,7 @@
         "highUsd": 24
       }
     ],
-    "notes": "Activities ~$52 per person (~$80 with the Athenaeum day pass). Transport ~$110 to $150 budget-leaning. Food not included."
+    "notes": "Activities ~$40 per person. Transport ~$110 to $150 budget-leaning. Food not included."
   },
   "bookings": [
     {
@@ -1206,12 +1180,8 @@
       "text": "Gardner timed ticket, Wed Nov 4, 11:00 ($15)"
     },
     {
-      "id": "athenaeum",
-      "text": "Athenaeum tour, Sat Oct 31, ~14:00 (~$12), or decide on the $40 day pass"
-    },
-    {
       "id": "landmark",
-      "text": "Landmark free loyalty signup; buy the film ticket when Tuesday's times appear"
+      "text": "Landmark free loyalty signup, then the 18:35 ticket for Tue Nov 3 (reserved seating)"
     },
     {
       "id": "airport-ride",
@@ -1221,7 +1191,6 @@
   "swaps": [
     "Rain on Saturday morning: Harvard Museum of Natural History (26 Oxford St, Cambridge) and its Glass Flowers instead of Mount Auburn (paid).",
     "Tired on Tuesday: skip the North End, go from Brattle straight to dinner in Kendall; the film stays.",
-    "Film times don't fit Tuesday: Sunday ~21:30 after the happy hour at Landmark Kendall, full price.",
     "One more free museum: MIT List Visual Arts Center (20 Ames St, Cambridge), opens 12:00 Tue."
   ]
 }
