@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boston, pills</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&display=swap">
+<style>
+:root { --paper: #f4f1ea; --ink: #141414; --soft: #6b6b66; --card: #fbfaf7; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font: 15px/1.45 "Schibsted Grotesk", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+#app { position: fixed; inset: 0; display: grid; grid-template-columns: 400px 1fr; }
+#panel { background: var(--card); overflow-y: auto; padding: 24px 24px 40px; }
+#map { position: relative; background: var(--paper); }
+.leaflet-container { background: var(--paper); font: inherit; }
+.leaflet-control-attribution { background: none; color: var(--soft); font-size: 11px; }
+.leaflet-control-attribution a { color: var(--soft); }
+.leaflet-control-zoom { border: 0 !important; box-shadow: 0 2px 10px rgba(0,0,0,.12); border-radius: 12px; overflow: hidden; }
+.leaflet-control-zoom a { background: #fff; color: var(--ink); border: 0 !important; width: 36px; height: 36px; line-height: 36px; }
+
+/* top bar on the map, like a search bar */
+#top { position: absolute; z-index: 800; top: 16px; left: 16px; right: 16px; display: flex; gap: 8px; align-items: center; background: #fff; border-radius: 999px; box-shadow: 0 4px 18px rgba(0,0,0,.12); padding: 6px 8px 6px 14px; }
+#top .trip { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+#top .trip small { color: var(--soft); font-weight: 400; margin-left: 8px; }
+#days { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+#days::-webkit-scrollbar { display: none; }
+#days button { flex: none; border: 0; background: none; color: var(--ink); font: inherit; font-size: 13px; padding: 8px 12px; border-radius: 999px; cursor: pointer; }
+#days button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+/* pills on the map */
+.pillwrap { position: relative; width: 0; height: 0; }
+.pill { position: absolute; left: 0; bottom: 6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+.pill .tag { background: #fff; border-radius: 999px; padding: 3px 9px; font-size: 11px; color: var(--soft); white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.14); }
+.pill .name { background: #fff; border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 500; white-space: nowrap; box-shadow: 0 3px 12px rgba(0,0,0,.18); }
+.pill.on .name { background: var(--ink); color: #fff; }
+.pill.on .tag { background: var(--ink); color: #fff; }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 3px #fff; }
+.pill.lodge .name { font-weight: 400; color: var(--soft); }
+.pill.lodge .dot { background: var(--soft); }
+.pill.hide .name, .pill.hide .tag { display: none; }
+
+/* panel */
+h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: 0; }
+.sentence { color: var(--soft); margin: 0 0 22px; }
+.spend { margin: 0 0 22px; font-size: 13px; color: var(--soft); }
+ol { list-style: none; margin: 0; padding: 0; }
+ol li { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: baseline; padding: 11px 0; cursor: pointer; }
+ol li .t { color: var(--soft); font-variant-numeric: tabular-nums; font-size: 13px; }
+ol li .n { font-weight: 500; }
+ol li .leg { grid-column: 2 / 4; color: var(--soft); font-size: 13px; margin-top: -2px; }
+ol li .c { color: var(--soft); font-size: 13px; white-space: nowrap; }
+ol li[aria-current="true"] .n { text-decoration: underline; text-underline-offset: 3px; }
+#detail { margin: 0 0 14px; padding: 18px; background: #fff; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+#detail:empty { display: none; }
+#detail .meta { color: var(--soft); font-size: 13px; margin: 0 0 8px; }
+#detail h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+#detail p { margin: 0 0 10px; }
+#detail a { color: var(--ink); }
+#detail .close { float: right; border: 0; background: var(--paper); border-radius: 999px; width: 30px; height: 30px; cursor: pointer; font: inherit; }
+
+/* phone: map full screen, bottom sheet */
+@media (max-width: 760px) {
+  #app { grid-template-columns: 1fr; }
+  #map { position: fixed; inset: 0; }
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; height: 42vh; border-radius: 22px 22px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,.12); padding: 10px 16px 32px; transition: height .25s ease; z-index: 900; touch-action: pan-y; }
+  #panel.tall { height: 82vh; }
+  #panel .grip { width: 40px; height: 4px; border-radius: 2px; background: #d8d5cc; margin: 0 auto 14px; }
+  h1 { font-size: 19px; }
+  #panel.sel h1, #panel.sel .sentence, #panel.sel .spend { display: none; }
+  #top { top: 12px; left: 12px; right: 12px; padding-left: 12px; }
+  #top .trip { display: none; }
+  .leaflet-top.leaflet-left { top: 72px; }
+  .leaflet-control-attribution { display: none; }
+  .leaflet-control-zoom { display: none; }
+}
+@media (min-width: 761px) { #panel .grip { display: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <div class="grip"></div>
+    <h1 id="title"></h1>
+    <p class="sentence" id="sentence"></p>
+    <p class="spend" id="spend"></p>
+    <div id="detail"></div>
+    <ol id="list"></ol>
+  </aside>
+  <div id="map">
+    <div id="top"><div class="trip">Boston & Cambridge <small>Oct 30 to Nov 5</small></div><div id="days"></div></div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const SEED = {"trip": {"name": "Boston & Cambridge", "start": "2026-10-30", "end": "2026-11-05", "timezone": "America/New_York"}, "lodging": [{"id": "airbnb", "name": "Airbnb", "address": "15 Holmes St, Cambridge, MA 02138", "nights": ["2026-10-30", "2026-10-31"], "checkIn": "16:00", "checkOut": "11:00", "lat": 42.3777858, "lng": -71.1497101, "geocodeStatus": "ok"}, {"id": "sonesta", "name": "Royal Sonesta Boston", "address": "40 Edwin Land Blvd, Cambridge, MA 02142", "nights": ["2026-11-01", "2026-11-02"], "checkIn": "16:00", "checkOut": "11:00", "lat": 42.3629372, "lng": -71.0787172, "geocodeStatus": "ok"}, {"id": "ginkgo", "name": "Ginkgo House on Harvard", "address": "288 Harvard St, Cambridge, MA 02139", "nights": ["2026-11-03", "2026-11-04"], "checkIn": "16:00", "checkOut": "05:00 departure", "lat": 42.3692274, "lng": -71.1049816, "geocodeStatus": "ok"}], "days": [{"date": "2026-10-30", "title": "Fri Oct 30: land, Harvard Square bookshops at dusk", "summary": "Short and close to the Airbnb: two bookstores, the Yard at golden hour, cheap dinner, early night.", "spend": "~$15 to $25 plus the airport leg", "routeUrl": "https://www.google.com/maps/dir/15+Holmes+St,+Cambridge,+MA+02138/Harvard+Yard,+Cambridge,+MA/Harvard+Book+Store,+1256+Massachusetts+Ave,+Cambridge,+MA/Grolier+Poetry+Book+Shop,+6+Plympton+St,+Cambridge,+MA/Clover+Food+Lab+Harvard+Square,+Cambridge,+MA", "stops": [{"id": "fri-logan", "time": "14:40", "name": "Land at Logan Airport", "type": "transit", "address": "Boston Logan International Airport, Boston, MA", "why": "If this is the international arrival, expect to be out around 15:45 to 16:15.", "cost": {"label": "", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "subway", "minutes": 70, "costUsd": 2.4, "text": "Free Silver Line SL1 to South Station, Red Line to Harvard, walk (~70 min, $2.40); or Uber 35 to 50 min (~$40 to $60)"}, "lat": 42.3656, "lng": -71.0096, "geocodeStatus": "ok"}, {"id": "fri-airbnb", "time": "16:30", "name": "Check in at the Airbnb", "type": "lodging", "address": "15 Holmes St, Cambridge, MA 02138", "why": "Check-in opens 16:00.", "cost": {"label": "", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 20, "costUsd": 0, "text": "Walk to Harvard Square, ~15 to 25 min"}, "lat": 42.3777858, "lng": -71.1497101, "geocodeStatus": "ok"}, {"id": "fri-harvard-yard", "time": "17:15", "name": "Harvard Yard", "type": "walk", "address": "Harvard Yard, Cambridge, MA", "why": "Sunset ~17:40: the one evening you get the Yard in golden light before the clock change. Widener Library, Memorial Church, John Harvard statue.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 3, "costUsd": 0, "text": "3 min walk"}, "lat": 42.3744, "lng": -71.1169, "geocodeStatus": "ok"}, {"id": "fri-harvard-book-store", "time": "17:45", "name": "Harvard Book Store", "type": "bookstore", "address": "1256 Massachusetts Ave, Cambridge, MA", "why": "Independent since the 1930s, open late, with a used and remainder basement where books are cheap.", "cost": {"label": "Free to browse", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 3, "costUsd": 0, "text": "3 min walk"}, "lat": 42.3725414, "lng": -71.1163631, "geocodeStatus": "ok"}, {"id": "fri-grolier", "time": "18:45", "name": "Grolier Poetry Book Shop", "type": "bookstore", "address": "6 Plympton St, Cambridge, MA", "why": "One of the oldest poetry-only bookstores in the US, one tiny room, on the way. May close around 19:00.", "optional": true, "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 4, "costUsd": 0, "text": "4 min walk"}, "lat": 42.3724116, "lng": -71.1164524, "geocodeStatus": "ok"}, {"id": "fri-dinner", "time": "19:00", "name": "Dinner: Clover Food Lab", "type": "food", "address": "Clover Food Lab, Harvard Square, Cambridge, MA", "alternatives": [{"name": "Mr. Bartley's Burger Cottage", "address": "1246 Massachusetts Ave, Cambridge, MA", "why": "Harvard Square institution since 1960, ~$20 to $25."}], "why": "Local vegetarian chain, fast, ~$12 to $15, good after a flight.", "cost": {"label": "~$13 to $25", "amountUsd": 15, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 20, "costUsd": 0, "text": "Walk back to the Airbnb"}, "lat": 42.3732757, "lng": -71.1181004, "geocodeStatus": "ok"}]}, {"date": "2026-10-31", "title": "Sat Oct 31: Mount Auburn, Harvard, Halloween on Beacon Hill", "summary": "Cambridge in the morning, Beacon Hill from mid afternoon through Halloween night.", "spend": "Food and ~$5 in T fares", "routeUrl": "https://www.google.com/maps/dir/Simon%27s+Coffee+Shop,+1736+Massachusetts+Ave,+Cambridge,+MA/Mount+Auburn+Cemetery,+580+Mount+Auburn+St,+Cambridge,+MA/Harvard+Art+Museums,+32+Quincy+St,+Cambridge,+MA/Pinocchio%27s+Pizza,+74+Winthrop+St,+Cambridge,+MA/Panificio,+144+Charles+St,+Boston,+MA/Acorn+St,+Boston,+MA/Boston+Public+Garden,+Boston,+MA/Louisburg+Square,+Boston,+MA/Charles%2FMGH+Station,+Boston,+MA", "stops": [{"id": "sat-coffee", "time": "08:30", "name": "Coffee: Simon's Coffee Shop", "type": "cafe", "address": "1736 Massachusetts Ave, Cambridge, MA", "alternatives": [{"name": "Tatte, Harvard Square", "address": "Tatte Bakery, Harvard Square, Cambridge, MA", "why": "Sit-down breakfast with pastries; pricier and busy."}], "why": "Tiny, local, cheap, a Harvard-student favorite.", "cost": {"label": "~$5 to $15", "amountUsd": 7, "payAhead": false}, "legToNext": {"mode": "bus", "minutes": 10, "costUsd": 1.7, "text": "Bus 71 or 73 from Harvard, ~10 min, or a 25 min walk down Brattle St"}, "lat": 42.3845279, "lng": -71.1198467, "geocodeStatus": "ok"}, {"id": "sat-mount-auburn", "time": "09:15", "name": "Mount Auburn Cemetery", "type": "walk", "address": "580 Mount Auburn St, Cambridge, MA", "why": "America's first garden cemetery (1831), a 175-acre arboretum at peak fall color. Climb Washington Tower for the skyline. Gardens, walks and architecture in one free stop. 1.5 h.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "bus", "minutes": 10, "costUsd": 1.7, "text": "Bus 71/73 back to Harvard, ~10 min"}, "lat": 42.3753042, "lng": -71.1431123, "geocodeStatus": "ok"}, {"id": "sat-harvard-art-museums", "time": "11:00", "name": "Harvard Art Museums", "type": "museum", "address": "32 Quincy St, Cambridge, MA", "why": "Free, world-class collection, Renzo Piano's glass-roofed courtyard. The best free museum on the trip. 1.5 h.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 5, "costUsd": 0, "text": "5 min walk"}, "lat": 42.3742178, "lng": -71.1145269, "geocodeStatus": "ok"}, {"id": "sat-lunch", "time": "12:30", "name": "Lunch: Pinocchio's Pizza", "type": "food", "address": "74 Winthrop St, Cambridge, MA", "why": "Cheap Sicilian slices, a Harvard Square institution; fast.", "cost": {"label": "~$8 to $12", "amountUsd": 10, "payAhead": false}, "legToNext": {"mode": "subway", "minutes": 20, "costUsd": 2.4, "text": "Red Line Harvard to Charles/MGH, ~15 min, then 5 min walk down Charles St"}, "lat": 42.3720032, "lng": -71.1202684, "geocodeStatus": "ok"}, {"id": "sat-coffee-break", "time": "15:30", "name": "Coffee: Panificio", "type": "cafe", "address": "144 Charles St, Boston, MA", "alternatives": [{"name": "Tatte, Charles St", "address": "Tatte Bakery, Charles Street, Boston, MA", "why": "If you liked it in the morning."}, {"name": "Beacon Hill Books & Cafe (browse)", "address": "71 Charles St, Boston, MA", "why": "Five-story townhouse bookstore; browsing is free."}], "why": "Long-running neighborhood bakery-cafe, cheaper and more local.", "cost": {"label": "~$5 to $10", "amountUsd": 7, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 5, "costUsd": 0, "text": "5 min walk"}, "lat": 42.3602799, "lng": -71.0709734, "geocodeStatus": "ok"}, {"id": "sat-acorn", "time": "16:15", "name": "Acorn St", "type": "walk", "address": "Acorn St, Boston, MA", "why": "Boston's most photographed cobblestone lane; go while there is light and before the crowd.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 8, "costUsd": 0, "text": "8 min walk"}, "lat": 42.3579, "lng": -71.069, "geocodeStatus": "ok"}, {"id": "sat-public-garden", "time": "16:45", "name": "Public Garden", "type": "walk", "address": "Boston Public Garden, Boston, MA", "why": "Lagoon, willows, Make Way for Ducklings statues, at dusk.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 5, "costUsd": 0, "text": "5 min walk"}, "lat": 42.3541, "lng": -71.0704, "geocodeStatus": "ok"}, {"id": "sat-dinner", "time": "17:15", "name": "Dinner: The Paramount", "type": "food", "address": "44 Charles St, Boston, MA", "why": "Order-at-the-counter diner; the cheapest sit-down meal on Charles St, no reservation fight on Halloween.", "cost": {"label": "~$18 to $25", "amountUsd": 22, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 8, "costUsd": 0, "text": "8 min walk"}, "lat": 42.3585, "lng": -71.0705, "geocodeStatus": "ok"}, {"id": "sat-halloween", "time": "18:15", "name": "Halloween on Beacon Hill (Louisburg Square, Pinckney, Mount Vernon, West Cedar)", "type": "event", "address": "Louisburg Square, Boston, MA", "why": "Mount Vernon and Pinckney close to cars ~16:00 to 20:00; residents compete on decorations. One night a year.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "subway", "minutes": 15, "costUsd": 2.4, "text": "Red Line Charles/MGH to Harvard, ~15 min, then walk"}, "lat": 42.3581, "lng": -71.0686, "geocodeStatus": "ok"}]}, {"date": "2026-11-01", "title": "Sun Nov 1: move hotels, South End, happy hour", "summary": "SoWa runs only on Sundays, so midday goes to the South End: market, Parkside and decorated brownstones within a 10-minute walk. Clocks fell back overnight.", "spend": "Free activities; $35 to $40 in rides or ~$5 by T", "routeUrl": "https://www.google.com/maps/dir/Porter+Square+Books,+25+White+St,+Cambridge,+MA/Royal+Sonesta+Boston,+40+Edwin+Land+Blvd,+Cambridge,+MA/SoWa+Vintage+Market,+450+Harrison+Ave,+Boston,+MA/Bobby+From+Boston,+19+Thayer+St,+Boston,+MA/South+End+Buttery,+314+Shawmut+Ave,+Boston,+MA/Union+Park,+Boston,+MA/Rutland+Square,+Boston,+MA/Parkside+Bookshop,+260+Shawmut+Ave,+Boston,+MA/Royal+Sonesta+Boston,+40+Edwin+Land+Blvd,+Cambridge,+MA", "stops": [{"id": "sun-breakfast", "time": "08:30", "name": "Breakfast: Page & Leaf at Porter Square Books", "type": "cafe", "address": "25 White St, Cambridge, MA", "alternatives": [{"name": "Phinista", "address": "Phinista, Porter Square, Cambridge, MA", "why": "Vietnamese coffee shop, stronger drinks."}], "why": "Coffee inside one of Cambridge's best indie bookstores.", "cost": {"label": "~$6 to $12", "amountUsd": 9, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 15, "costUsd": 0, "text": "Back to pack; check out by 11:00"}, "lat": 42.3898495, "lng": -71.1185003, "geocodeStatus": "ok"}, {"id": "sun-checkout", "time": "10:15", "name": "Check out, ride to Royal Sonesta, drop bags", "type": "lodging", "address": "40 Edwin Land Blvd, Cambridge, MA 02142", "why": "With luggage the T means two lines and stairs; worth the ride.", "cost": {"label": "~$15 to $20 ride", "amountUsd": 18, "payAhead": false}, "legToNext": {"mode": "ride", "minutes": 15, "costUsd": 18, "text": "Uber to SoWa ~15 min (~$15 to $20), or Green Line + 15 min walk, 35 min ($2.40)"}, "lat": 42.3629372, "lng": -71.0787172, "geocodeStatus": "ok"}, {"id": "sun-sowa", "time": "11:00", "name": "SoWa Vintage Market", "type": "market", "address": "450 Harrison Ave, Boston, MA", "why": "Weekly antiques and vintage market, Sundays 11:00 to 16:00 only, free entry, dozens of dealers.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 2, "costUsd": 0, "text": "2 min walk"}, "lat": 42.3426628, "lng": -71.064556, "geocodeStatus": "ok"}, {"id": "sun-bobby", "time": "12:00", "name": "Bobby from Boston", "type": "market", "address": "19 Thayer St, Boston, MA", "optional": true, "why": "Famous but mostly menswear; two minutes away, so a 15-minute look. Confirm Sunday hours.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 8, "costUsd": 0, "text": "8 min walk"}, "lat": 42.3424675, "lng": -71.0648716, "geocodeStatus": "ok"}, {"id": "sun-brunch", "time": "12:30", "name": "Brunch: South End Buttery", "type": "food", "address": "314 Shawmut Ave, Boston, MA", "alternatives": [{"name": "Flour Bakery", "address": "1595 Washington St, Boston, MA", "why": "Joanne Chang's bakery, cheaper (sticky bun + coffee ~$10), faster."}], "why": "Neighborhood cafe-bakery on the same block as Parkside, real brunch plates.", "cost": {"label": "~$10 to $25", "amountUsd": 18, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 5, "costUsd": 0, "text": "5 min walk"}, "lat": 42.3420881, "lng": -71.0703614, "geocodeStatus": "ok"}, {"id": "sun-decor", "time": "13:45", "name": "Halloween-decor stroll: Union Park, Rutland Square, Waltham St, Pembroke St", "type": "walk", "address": "Union Park, Boston, MA", "why": "Victorian bowfront rowhouses around oval gardens, still decorated. Best daylight for content. ~45 min.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 5, "costUsd": 0, "text": "5 min walk"}, "lat": 42.3425, "lng": -71.071, "geocodeStatus": "ok"}, {"id": "sun-parkside", "time": "14:45", "name": "Parkside Bookshop", "type": "bookstore", "address": "260 Shawmut Ave, Boston, MA", "why": "Opened 2024 in an 1800s building with tin ceilings and a working fireplace; a Boston Globe best bookstore of 2026.", "cost": {"label": "Free to browse", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "ride", "minutes": 15, "costUsd": 18, "text": "Uber back to the Sonesta ~15 min (~$15 to $20), or Orange + Green Line, 35 min ($2.40)"}, "lat": 42.3431763, "lng": -71.068476, "geocodeStatus": "ok"}, {"id": "sun-sonesta", "time": "16:00", "name": "Check in at Royal Sonesta, rest", "type": "lodging", "address": "40 Edwin Land Blvd, Cambridge, MA 02142", "why": "Sunset is now ~16:35.", "cost": {"label": "", "amountUsd": 0, "payAhead": false}, "legToNext": null, "lat": 42.3629372, "lng": -71.0787172, "geocodeStatus": "ok"}, {"id": "sun-happy-hour", "time": "18:00", "name": "Creator happy hour (18:00 to 21:00)", "type": "event", "address": "", "why": "Location not set yet.", "cost": {"label": "", "amountUsd": 0, "payAhead": false}, "legToNext": null, "lat": null, "lng": null, "geocodeStatus": "check"}]}, {"date": "2026-11-02", "title": "Mon Nov 2: summit day", "summary": "Sci comm summit, 8:30 to 21:00. Nothing else scheduled. Leave the Sonesta at 8:10.", "spend": "$0", "routeUrl": "https://www.google.com/maps/dir/Royal+Sonesta+Boston,+40+Edwin+Land+Blvd,+Cambridge,+MA/Museum+of+Science,+Boston,+MA/data=!4m2!4m1!3e2", "stops": [{"id": "mon-summit", "time": "08:30", "name": "Sci comm summit, Museum of Science", "type": "event", "address": "1 Museum of Science Driveway, Boston, MA", "why": "The reason for the trip. ~10 min walk from the Sonesta across the Charles River Dam.", "cost": {"label": "$0", "amountUsd": 0, "payAhead": false}, "legToNext": null, "lat": 42.3677, "lng": -71.0709, "geocodeStatus": "ok"}]}, {"date": "2026-11-03", "title": "Tue Nov 3: MIT, Brattle, North End, then the film", "summary": "MIT in the morning, downtown and the North End in the afternoon, You Can See Everything at 18:35, 15 minutes' walk from Ginkgo House.", "spend": "About $25 in activities, $10 ride, $7 in T fares", "routeUrl": "https://www.google.com/maps/dir/Royal+Sonesta+Boston,+40+Edwin+Land+Blvd,+Cambridge,+MA/288+Harvard+St,+Cambridge,+MA+02139/MIT+Museum,+314+Main+St,+Cambridge,+MA/Ray+and+Maria+Stata+Center,+32+Vassar+St,+Cambridge,+MA/Killian+Court,+Cambridge,+MA/Kresge+Auditorium,+48+Massachusetts+Ave,+Cambridge,+MA/Flour+Bakery,+190+Massachusetts+Ave,+Cambridge,+MA/Brattle+Book+Shop,+9+West+St,+Boston,+MA/Boston+Public+Market,+100+Hanover+St,+Boston,+MA/Old+North+Church,+193+Salem+St,+Boston,+MA/Landmark+Kendall+Square+Cinema,+355+Binney+St,+Cambridge,+MA/288+Harvard+St,+Cambridge,+MA+02139", "stops": [{"id": "tue-breakfast", "time": "08:45", "name": "Breakfast: Shy Bird Kendall", "type": "cafe", "address": "390 Third St, Cambridge, MA", "alternatives": [{"name": "Tatte, Kendall Square", "address": "Tatte Bakery, Kendall Square, Cambridge, MA", "why": "Quicker pastry and coffee."}], "why": "~10 min walk from the Sonesta; proper cooked breakfast after the summit.", "cost": {"label": "~$10 to $18", "amountUsd": 14, "payAhead": false}, "legToNext": {"mode": "ride", "minutes": 10, "costUsd": 10, "text": "Check out 09:30; Uber with bags to Ginkgo House, ~10 min (~$10)"}, "lat": 42.3626938, "lng": -71.0839944, "geocodeStatus": "ok"}, {"id": "tue-ginkgo-bags", "time": "09:45", "name": "Drop bags at Ginkgo House", "type": "lodging", "address": "288 Harvard St, Cambridge, MA 02139", "why": "Check-in is 16:00; dropping bags first avoids crossing back for them.", "cost": {"label": "", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 20, "costUsd": 0, "text": "Walk to MIT, ~20 min"}, "lat": 42.3692274, "lng": -71.1049816, "geocodeStatus": "ok"}, {"id": "tue-mit-museum", "time": "10:15", "name": "MIT Museum", "type": "museum", "address": "314 Main St, Cambridge, MA", "why": "AI and robotics galleries, holography, MIT hacks; directly useful for content. Daily 10 to 17. 1.5 h.", "cost": {"label": "~$18 (ask about student rate)", "amountUsd": 18, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 8, "costUsd": 0, "text": "8 min walk"}, "lat": 42.3619754, "lng": -71.0864154, "geocodeStatus": "ok"}, {"id": "tue-mit-walk", "time": "11:45", "name": "MIT architecture walk: Stata Center, Killian Court, Kresge and MIT Chapel", "type": "walk", "address": "32 Vassar St, Cambridge, MA", "why": "Gehry's Stata, the Great Dome, Saarinen's two 1955 buildings in one 45-minute free loop.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 5, "costUsd": 0, "text": "5 min walk up Mass Ave"}, "lat": 42.3615416, "lng": -71.0906713, "geocodeStatus": "ok"}, {"id": "tue-lunch", "time": "12:45", "name": "Lunch: Flour Bakery Central", "type": "food", "address": "190 Massachusetts Ave, Cambridge, MA", "why": "On the way, fast, cheap sandwiches.", "cost": {"label": "~$12 to $15", "amountUsd": 13, "payAhead": false}, "legToNext": {"mode": "subway", "minutes": 12, "costUsd": 2.4, "text": "Red Line Central to Downtown Crossing, ~12 min"}, "lat": 42.3609964, "lng": -71.0968272, "geocodeStatus": "ok"}, {"id": "tue-brattle", "time": "14:00", "name": "Brattle Book Shop", "type": "bookstore", "address": "9 West St, Boston, MA", "why": "Founded 1825; outdoor lot of $1 to $5 books, rare books on the third floor. Best bookstore for the budget. Mon to Sat until 17:30.", "cost": {"label": "$1 to $5 per book", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 15, "costUsd": 0, "text": "Walk past the Old State House and Faneuil Hall, ~15 min"}, "lat": 42.3546859, "lng": -71.0620272, "geocodeStatus": "ok"}, {"id": "tue-coffee", "time": "15:15", "name": "Coffee: George Howell, Boston Public Market", "type": "cafe", "address": "100 Hanover St, Boston, MA", "why": "One of Boston's most respected roasters (Globe best coffee 2026), inside a free-to-browse food market.", "cost": {"label": "~$5", "amountUsd": 5, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 10, "costUsd": 0, "text": "10 min walk"}, "lat": 42.3621228, "lng": -71.0575399, "geocodeStatus": "ok"}, {"id": "tue-north-end", "time": "15:45", "name": "North End: Hanover St, Old North Church, Copp's Hill at sunset", "type": "walk", "address": "193 Salem St, Boston, MA", "alternatives": [{"name": "Caffè Vittoria (cannoli)", "address": "290 Hanover St, Boston, MA", "why": "Old-school pick over the tourist lines."}], "why": "Boston's oldest neighborhood; viewing outside is free. Sunset ~16:30.", "cost": {"label": "Free (~$5 cannoli)", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "subway", "minutes": 20, "costUsd": 2.4, "text": "Green Line Haymarket to Park St, Red Line to Kendall/MIT, ~20 min"}, "lat": 42.366316, "lng": -71.0544478, "geocodeStatus": "ok"}, {"id": "tue-dinner", "time": "17:00", "name": "Dinner: The Friendly Toast or Flat Top Johnny's", "type": "food", "address": "One Kendall Square, Cambridge, MA", "why": "Same courtyard as the cinema entrance, zero transit before the film.", "cost": {"label": "~$18 to $25", "amountUsd": 22, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 2, "costUsd": 0, "text": "2 min walk; be seated by 18:25"}, "lat": 42.3668, "lng": -71.0905, "geocodeStatus": "ok"}, {"id": "tue-film", "time": "18:35", "name": "You Can See Everything (Landmark Kendall Square Cinema)", "type": "cinema", "address": "355 Binney St, Cambridge, MA", "why": "Confirmed for Tue Nov 3 at 15:00 and 18:35 at Landmark Kendall, reserved seating. 2 h 54 min, out around 21:30. 15 min walk from Ginkgo. $7 Tuesdays with the free loyalty signup, if still running; otherwise $16.50 to $18.", "cost": {"label": "$7 Tue (loyalty) or ~$17", "amountUsd": 7, "payAhead": true}, "legToNext": {"mode": "walk", "minutes": 15, "costUsd": 0, "text": "Walk home to Ginkgo House, ~15 min"}, "lat": 42.3683227, "lng": -71.0900707, "geocodeStatus": "ok"}]}, {"date": "2026-11-04", "title": "Wed Nov 4: Michette, Gardner, BPL, Back Bay", "summary": "The Gardner is closed Tuesdays, so it lands today, with the free BPL and a Back Bay walk. Dinner doubles as the last bookstore.", "spend": "$15 in activities, ~$7 in T fares", "routeUrl": "https://www.google.com/maps/dir/288+Harvard+St,+Cambridge,+MA+02139/Michette+Bakery,+Inman+Square,+Cambridge,+MA/Fenway+Victory+Gardens,+Boston,+MA/Isabella+Stewart+Gardner+Museum,+25+Evans+Way,+Boston,+MA/Boston+Public+Library,+700+Boylston+St,+Boston,+MA/Trinity+Church,+206+Clarendon+St,+Boston,+MA/Commonwealth+Avenue+Mall,+Boston,+MA/Trident+Booksellers+%26+Cafe,+338+Newbury+St,+Boston,+MA", "stops": [{"id": "wed-michette", "time": "08:00", "name": "Breakfast: Michette", "type": "cafe", "address": "Michette Bakery, Inman Square, Cambridge, MA", "alternatives": [{"name": "Cicada Coffee Bar", "address": "106 Prospect St, Cambridge, MA", "why": "Vietnamese coffee, Best of Boston pick, next to Ginkgo."}], "why": "Small artisanal French bakery ~10 min from Ginkgo. Temporary hours Tue to Sun 8 to 14; confirm.", "cost": {"label": "~$8 to $12", "amountUsd": 10, "payAhead": false}, "legToNext": {"mode": "subway", "minutes": 35, "costUsd": 2.4, "text": "Red Line Central to Park St, Green Line E to Museum of Fine Arts, about 35 min; or Uber, 20 min (~$15)"}, "lat": 42.3735131, "lng": -71.0984369, "geocodeStatus": "ok"}, {"id": "wed-fens", "time": "09:45", "name": "Fenway Victory Gardens and the Back Bay Fens", "type": "walk", "address": "Fenway Victory Gardens, Boston, MA", "why": "WWII community gardens inside Olmsted's Emerald Necklace; fills the time before the Gardner opens.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 8, "costUsd": 0, "text": "8 min walk"}, "lat": 42.3435, "lng": -71.0953, "geocodeStatus": "ok"}, {"id": "wed-gardner", "time": "11:00", "name": "Isabella Stewart Gardner Museum", "type": "museum", "address": "25 Evans Way, Boston, MA", "why": "Venetian palazzo around a flowering courtyard, rooms as Isabella left them, the empty frames from the 1990 heist. The one paid museum worth it if you only do one. 2 h.", "cost": {"label": "$15 student", "amountUsd": 15, "payAhead": true}, "legToNext": {"mode": "subway", "minutes": 10, "costUsd": 2.4, "text": "Green Line E, Museum of Fine Arts to Copley, ~10 min"}, "lat": 42.338245, "lng": -71.0991538, "geocodeStatus": "ok"}, {"id": "wed-lunch", "time": "13:15", "name": "Quick lunch near Copley", "type": "food", "address": "Copley Square, Boston, MA", "why": "Keep it cheap; grab-and-go.", "cost": {"label": "~$12", "amountUsd": 12, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 3, "costUsd": 0, "text": "3 min walk"}, "lat": 42.3499, "lng": -71.0776, "geocodeStatus": "ok"}, {"id": "wed-bpl", "time": "13:45", "name": "Boston Public Library, McKim Building", "type": "museum", "address": "700 Boylston St, Boston, MA", "why": "Free. Bates Hall, the Sargent murals, the Italianate courtyard: the public version of the Athenaeum. 1 h.", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 2, "costUsd": 0, "text": "2 min walk across Copley Square"}, "lat": 42.3493298, "lng": -71.0786547, "geocodeStatus": "ok"}, {"id": "wed-trinity", "time": "15:00", "name": "Trinity Church", "type": "walk", "address": "206 Clarendon St, Boston, MA", "why": "H. H. Richardson's 1877 masterpiece. Exterior free; interior has a fee, skip on budget.", "cost": {"label": "Free outside", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 5, "costUsd": 0, "text": "5 min walk"}, "lat": 42.3500677, "lng": -71.0754254, "geocodeStatus": "ok"}, {"id": "wed-comm-ave", "time": "15:30", "name": "Commonwealth Avenue Mall and Newbury St", "type": "walk", "address": "Commonwealth Avenue Mall, Boston, MA", "why": "Tree-lined boulevard of brownstones at dusk (sunset ~16:30).", "cost": {"label": "Free", "amountUsd": 0, "payAhead": false}, "legToNext": {"mode": "walk", "minutes": 15, "costUsd": 0, "text": "Walk up Newbury St"}, "lat": 42.3523, "lng": -71.076, "geocodeStatus": "ok"}, {"id": "wed-trident", "time": "17:00", "name": "Dinner and last bookstore: Trident Booksellers & Cafe", "type": "bookstore", "address": "338 Newbury St, Boston, MA", "why": "40-year-old bookstore with a full cafe serving dinner; last meal and last browse in one stop.", "cost": {"label": "~$18 to $25", "amountUsd": 22, "payAhead": false}, "legToNext": {"mode": "subway", "minutes": 30, "costUsd": 2.4, "text": "Green Line Hynes to Park St, Red Line to Central, walk 10 min (about 30 min total)"}, "lat": 42.3482427, "lng": -71.08661, "geocodeStatus": "ok"}]}, {"date": "2026-11-05", "title": "Thu Nov 5: departure", "summary": "Leave Ginkgo House at 05:00 for the 08:00 flight; ride ~20 min ($35 to $50). Book it the night before.", "spend": "$35 to $50 ride", "routeUrl": "https://www.google.com/maps/dir/288+Harvard+St,+Cambridge,+MA+02139/Boston+Logan+International+Airport", "stops": [{"id": "thu-depart", "time": "05:00", "name": "Leave for Logan", "type": "transit", "address": "Boston Logan International Airport, Boston, MA", "why": "Arrive ~05:20 for an 08:00 international departure.", "cost": {"label": "$35 to $50 ride", "amountUsd": 42, "payAhead": false}, "legToNext": null, "lat": 42.3656, "lng": -71.0096, "geocodeStatus": "ok"}]}], "budget": {"activities": [{"item": "You Can See Everything, Landmark Kendall (Tue, loyalty)", "amountUsd": 7}, {"item": "Gardner Museum, student", "amountUsd": 15}, {"item": "MIT Museum", "amountUsd": 18}], "transport": [{"item": "Logan to Airbnb (T / ride)", "lowUsd": 2.4, "highUsd": 60}, {"item": "Airbnb to Sonesta with bags (ride)", "lowUsd": 15, "highUsd": 20}, {"item": "Sonesta to SoWa and back", "lowUsd": 4.8, "highUsd": 40}, {"item": "Sonesta to Ginkgo with bags (ride)", "lowUsd": 0, "highUsd": 10}, {"item": "Ginkgo to Logan 05:00 (ride)", "lowUsd": 35, "highUsd": 50}, {"item": "Other subway rides (~10)", "lowUsd": 24, "highUsd": 24}], "notes": "Activities ~$40 per person. Transport ~$110 to $150 budget-leaning. Food not included."}, "bookings": [{"id": "gardner", "text": "Gardner timed ticket, Wed Nov 4, 11:00 ($15)"}, {"id": "landmark", "text": "Landmark free loyalty signup, then the 18:35 ticket for Tue Nov 3 (reserved seating)"}, {"id": "airport-ride", "text": "Ride to Logan, Thu Nov 5, 05:00, booked the night before"}], "swaps": ["Rain on Saturday morning: Harvard Museum of Natural History (26 Oxford St, Cambridge) and its Glass Flowers instead of Mount Auburn (paid).", "Tired on Tuesday: skip the North End, go from Brattle straight to dinner in Kendall; the film stays.", "One more free museum: MIT List Visual Arts Center (20 Ames St, Cambridge), opens 12:00 Tue."]};
+const F = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const DAY_NAMES = ['Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'];
+const place = n => n.replace(/^(Lunch|Dinner|Breakfast|Coffee|Brunch|Drinks|Check in|Check out|Check-in|Check-out) (at|from|into) (the )?/i, '').replace(/^(Land at|Fly from|Walk through|Walk) /i, '');
+const label = n => place(n).replace(/^(Coffee|Lunch|Dinner|Breakfast|Brunch|Drinks): /i, '').replace(/\s*\(.*\)$/, '');
+const money = s => { const c = s.cost || {}; if (c.label) return c.label; if (c.amountUsd) return '$' + c.amountUsd; return 'Free'; };
+const shortMoney = s => { const c = s.cost || {}; if (c.amountUsd) return '$' + c.amountUsd; if (/free/i.test(c.label || '')) return 'Free'; if (c.label) return c.label.split(/[ ,(]/)[0]; return 'Free'; };
+
+let dayIdx = 0, selected = null;
+const today = new Date(); const ymd = today.toISOString().slice(0, 10);
+const ti = SEED.days.findIndex(d => d.date === ymd); if (ti >= 0) dayIdx = ti;
+const hash = location.hash.replace('#', ''); if (/^\d$/.test(hash)) dayIdx = +hash;
+
+/* map */
+const map = L.map('map', { zoomControl: false, attributionControl: true, zoomSnap: 1, maxZoom: 17, maxBoundsViscosity: 1 }).setView([42.362, -71.09], 12);
+map.attributionControl.setPrefix(''); L.control.zoom({ position: 'bottomright' }).addTo(map);
+const PAPER = '#f4f1ea', ROADC = '#ffffff', WATER = '#cfe3ea', BUILT = '#ede9df', RAILC = '#d9d5ca';
+const ROAD_W = { m: 5, k: 4.5, p: 3.4, s: 2.4, t: 1.8 };
+const Paper = L.GridLayer.extend({
+  createTile(coords) {
+    const c = document.createElement('canvas'), size = this.getTileSize(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = size.x * dpr; c.height = size.y * dpr;
+    const ctx = c.getContext('2d'); ctx.scale(dpr, dpr); ctx.fillStyle = PAPER; ctx.fillRect(0, 0, size.x, size.y);
+    if (this.data) this.draw(ctx, coords, size.x);
+    return c;
+  },
+  draw(ctx, coords, T) {
+    const z = coords.z, scale = T * Math.pow(2, z), ox = coords.x * T, oy = coords.y * T, pad = 40;
+    const X = lng => (lng + 180) / 360 * scale - ox;
+    const Y = lat => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * scale - oy; };
+    const lat = y => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / scale))) * 180 / Math.PI;
+    const west = (ox - pad) / scale * 360 - 180, east = (ox + T + pad) / scale * 360 - 180, north = lat(oy - pad), south = lat(oy + T + pad);
+    const hit = f => !(f.b[2] < west || f.b[0] > east || f.b[3] < south || f.b[1] > north);
+    const areas = (c, list) => { c.beginPath(); list.forEach(f => f.r.forEach(r => { r.forEach((p, i) => i ? c.lineTo(X(p[0]), Y(p[1])) : c.moveTo(X(p[0]), Y(p[1]))); c.closePath(); })); };
+    const line = (c, p) => { c.beginPath(); p.forEach((q, i) => i ? c.lineTo(X(q[0]), Y(q[1])) : c.moveTo(X(q[0]), Y(q[1]))); c.stroke(); };
+    const k = Math.pow(2, z - 14);
+    const show = z >= 16 ? 'mkpst' : z >= 15 ? 'mkps' : z >= 14 ? 'mkp' : 'mk';
+    const roads = this.data.roads.filter(f => show.includes(f.c) && hit(f));
+    const rail = this.data.rail.filter(f => !f.u && hit(f));
+    const water = this.data.water.filter(hit), built = this.data.builtup.filter(hit);
+    const roadW = f => Math.max(1, Math.min(9, ROAD_W[f.c] * Math.pow(k, .7)));
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (built.length) { ctx.fillStyle = BUILT; areas(ctx, built); ctx.fill('evenodd'); }
+    if (water.length) { ctx.fillStyle = WATER; areas(ctx, water); ctx.fill('evenodd'); }
+    if (z >= 12) { ctx.strokeStyle = RAILC; ctx.lineWidth = 1.2; ctx.setLineDash([6, 4]); rail.forEach(f => line(ctx, f.p)); ctx.setLineDash([]); }
+    ctx.strokeStyle = '#e4e0d6'; roads.forEach(f => { ctx.lineWidth = roadW(f) + 1.5; line(ctx, f.p); });
+    ctx.strokeStyle = ROADC; 'tspkm'.split('').forEach(c => roads.forEach(f => { if (f.c === c) { ctx.lineWidth = roadW(f); line(ctx, f.p); } }));
+  }
+});
+const paper = new Paper({ tileSize: 256, updateWhenZooming: false, keepBuffer: 2, attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+fetch('../../basemap.json').then(r => r.json()).then(d => {
+  const bb = pts => { let a = 180, b = 90, c = -180, e = -90; pts.forEach(p => { if (p[0] < a) a = p[0]; if (p[0] > c) c = p[0]; if (p[1] < b) b = p[1]; if (p[1] > e) e = p[1]; }); return [a, b, c, e]; };
+  d.water.forEach(f => f.b = bb(f.r.flat())); d.builtup.forEach(f => f.b = bb(f.r.flat())); d.roads.forEach(f => f.b = bb(f.p)); d.rail.forEach(f => f.b = bb(f.p));
+  const edge = L.latLngBounds([d.bbox[1], d.bbox[0]], [d.bbox[3], d.bbox[2]]);
+  map.setMinZoom(map.getBoundsZoom(edge, true)); map.setMaxBounds(edge);
+  paper.data = d; paper.redraw();
+});
+
+const routeLayer = L.layerGroup().addTo(map), stopLayer = L.layerGroup().addTo(map), lodgeLayer = L.layerGroup().addTo(map);
+const markers = {};
+function pill(s, cls, tag) {
+  return L.divIcon({ className: 'pillwrap', html: `<div class="pill ${cls}" data-id="${esc(s.id)}">${tag ? `<span class="tag">${esc(tag)}</span>` : ''}<span class="name">${esc(label(s.name))}</span><span class="dot"></span></div>`, iconSize: [0, 0], iconAnchor: [0, 0] });
+}
+function drawMap() {
+  stopLayer.clearLayers(); routeLayer.clearLayers(); lodgeLayer.clearLayers();
+  const day = SEED.days[dayIdx], pts = [], bounds = [];
+  const lodgeToday = SEED.lodging.filter(l => l.nights.includes(day.date));
+  lodgeToday.forEach(l => {
+    if (!l.lat || day.stops.some(s => s.lat === l.lat)) return;
+    L.marker([l.lat, l.lng], { icon: pill({ id: 'lodge:' + l.id, name: l.name.replace('Royal ', '').replace(' House on Harvard', '') }, 'lodge', 'Tonight'), keyboard: false, zIndexOffset: -100 }).addTo(lodgeLayer);
+  });
+  day.stops.forEach((s, i) => {
+    if (!s.lat) return;
+    const tag = `${s.time || ''} · ${shortMoney(s)}`.replace(/^ · /, '');
+    const m = L.marker([s.lat, s.lng], { icon: pill(s, s.id === selected ? 'on' : '', tag), riseOnHover: true, zIndexOffset: s.id === selected ? 1000 : i }).addTo(stopLayer);
+    m.on('click', () => select(s.id, false));
+    markers[s.id] = m;
+    const mode = s.legToNext ? s.legToNext.mode : 'walk';
+    pts.push({ ll: [s.lat, s.lng], mode }); bounds.push([s.lat, s.lng]);
+  });
+  for (let i = 0; i < pts.length - 1; i++) {
+    L.polyline([pts[i].ll, pts[i + 1].ll], { color: '#141414', weight: 2, opacity: .9, dashArray: pts[i].mode === 'walk' ? '2 7' : '10 7', lineCap: 'round', interactive: false }).addTo(routeLayer);
+  }
+  if (bounds.length) map.fitBounds(bounds, { paddingTopLeft: [40, 110], paddingBottomRight: [40, window.innerWidth <= 760 ? window.innerHeight * .45 : 40], maxZoom: 15, animate: false });
+}
+
+function layoutPills() {
+  const boxes = [];
+  const els = [...document.querySelectorAll('.pill')].sort((a, b) => (b.classList.contains('on') ? 1 : 0) - (a.classList.contains('on') ? 1 : 0));
+  els.forEach(el => {
+    el.classList.remove('hide');
+    const r = el.getBoundingClientRect(), box = [r.left - 4, r.top - 4, r.right + 4, r.bottom + 4];
+    const clash = boxes.some(b => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
+    if (clash && !el.classList.contains('on')) el.classList.add('hide'); else boxes.push(box);
+  });
+}
+map.on('zoomend moveend', layoutPills);
+
+/* panel */
+function render() {
+  const day = SEED.days[dayIdx];
+  F('days').innerHTML = SEED.days.map((d, i) => `<button type="button" aria-pressed="${i === dayIdx}" data-day="${i}">${DAY_NAMES[i]} ${+d.date.slice(8)}</button>`).join('');
+  F('title').textContent = day.title.replace(/^\w+ \w+ \d+: /, '').replace(/^./, c => c.toUpperCase());
+  F('sentence').textContent = day.stops.map(s => `${s.time || ''} ${place(s.name)}`.trim()).join(', ') + '.';
+  F('spend').textContent = day.spend ? `Spend ${day.spend}` : '';
+  F('list').innerHTML = day.stops.map(s => `<li data-id="${esc(s.id)}"${s.id === selected ? ' aria-current="true"' : ''}><span class="t">${esc(s.time || '')}</span><span class="n">${esc(place(s.name))}</span><span class="c">${esc(shortMoney(s))}</span>${s.legToNext && s.legToNext.text ? `<span class="leg">then ${esc(s.legToNext.text)}</span>` : ''}</li>`).join('');
+  const s = day.stops.find(x => x.id === selected);
+  F('panel').classList.toggle('sel', !!s);
+  F('detail').innerHTML = s ? `<button type="button" class="close" aria-label="Close">×</button><p class="meta">${esc(s.time || '')} · ${esc(money(s))}${s.legToNext && s.legToNext.text ? ` · then ${esc(s.legToNext.text)}` : ''}</p><h2>${esc(s.name)}</h2>${s.why ? `<p>${esc(s.why)}</p>` : ''}${s.address ? `<p><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}" target="_blank" rel="noopener">${esc(s.address)}</a></p>` : ''}${s.alternatives && s.alternatives.length ? `<p class="meta">Or ${esc(s.alternatives.map(a => typeof a === 'string' ? a : a.name).join(', '))}</p>` : ''}` : '';
+  drawMap(); layoutPills();
+  if (s) { const row = document.querySelector(`#list li[aria-current="true"]`); if (row && window.innerWidth > 760) row.scrollIntoView({ block: 'nearest' }); }
+}
+function select(id, fromList) {
+  selected = selected === id ? null : id; render();
+  const s = SEED.days[dayIdx].stops.find(x => x.id === selected);
+  if (s && s.lat) { map.panTo([s.lat, s.lng], { animate: false }); if (window.innerWidth <= 760) map.panBy([0, window.innerHeight * .21], { animate: false }); layoutPills(); }
+  if (s && window.innerWidth <= 760) { F('panel').scrollTo({ top: 0 }); }
+}
+document.addEventListener('click', e => {
+  const d = e.target.closest('[data-day]'); if (d) { dayIdx = +d.dataset.day; selected = null; location.hash = dayIdx; render(); return; }
+  const li = e.target.closest('#list li'); if (li) { select(li.dataset.id, true); return; }
+  if (e.target.closest('#detail .close')) { selected = null; render(); return; }
+});
+/* phone sheet: drag between two heights */
+(() => {
+  const p = F('panel'); let y0 = null;
+  p.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  p.addEventListener('touchend', e => { if (y0 == null) return; const dy = e.changedTouches[0].clientY - y0; if (dy < -40) p.classList.add('tall'); if (dy > 40 && p.scrollTop <= 0) p.classList.remove('tall'); y0 = null; }, { passive: true });
+  p.querySelector('.grip').addEventListener('click', () => p.classList.toggle('tall'));
+})();
+render();
+</script>
+</body>
+</html>
