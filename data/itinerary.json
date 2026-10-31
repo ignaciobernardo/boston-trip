@@ -349,34 +349,12 @@
           },
           "legToNext": {
             "mode": "walk",
-            "minutes": 8,
+            "minutes": 5,
             "costUsd": 0,
-            "text": "8 min walk"
+            "text": "5 min walk down to Charles St"
           },
           "lat": 42.3579,
           "lng": -71.069,
-          "geocodeStatus": "ok"
-        },
-        {
-          "id": "sat-public-garden",
-          "time": "16:45",
-          "name": "Public Garden",
-          "type": "walk",
-          "address": "Boston Public Garden, Boston, MA",
-          "why": "Lagoon, willows, Make Way for Ducklings statues, at dusk.",
-          "cost": {
-            "label": "Free",
-            "amountUsd": 0,
-            "payAhead": false
-          },
-          "legToNext": {
-            "mode": "walk",
-            "minutes": 5,
-            "costUsd": 0,
-            "text": "5 min walk"
-          },
-          "lat": 42.3541,
-          "lng": -71.0704,
           "geocodeStatus": "ok"
         },
         {
@@ -428,7 +406,7 @@
     {
       "date": "2026-11-01",
       "title": "Sun Nov 1: move hotels, South End, happy hour",
-      "summary": "SoWa runs only on Sundays, so midday goes to the South End: market, Parkside and decorated brownstones within a 10-minute walk. Clocks fell back overnight.",
+      "summary": "SoWa runs only on Sundays, so midday goes to the South End: market, Parkside and decorated brownstones within a 10-minute walk, then the Public Garden on the way back to the Sonesta. Clocks fell back overnight.",
       "spend": "Free activities; $35 to $40 in rides or ~$5 by T",
       "routeUrl": "https://www.google.com/maps/dir/Porter+Square+Books,+25+White+St,+Cambridge,+MA/Royal+Sonesta+Boston,+40+Edwin+Land+Blvd,+Cambridge,+MA/SoWa+Vintage+Market,+450+Harrison+Ave,+Boston,+MA/Bobby+From+Boston,+19+Thayer+St,+Boston,+MA/South+End+Buttery,+314+Shawmut+Ave,+Boston,+MA/Union+Park,+Boston,+MA/Rutland+Square,+Boston,+MA/Parkside+Bookshop,+260+Shawmut+Ave,+Boston,+MA/Royal+Sonesta+Boston,+40+Edwin+Land+Blvd,+Cambridge,+MA",
       "stops": [
@@ -592,13 +570,35 @@
             "payAhead": false
           },
           "legToNext": {
-            "mode": "ride",
-            "minutes": 15,
-            "costUsd": 18,
-            "text": "Uber back to the Sonesta ~15 min (~$15 to $20), or Orange + Green Line, 35 min ($2.40)"
+            "mode": "walk",
+            "minutes": 18,
+            "costUsd": 0,
+            "text": "18 min walk up Tremont St to Boylston"
           },
           "lat": 42.3431763,
           "lng": -71.068476,
+          "geocodeStatus": "ok"
+        },
+        {
+          "id": "sun-public-garden",
+          "time": "15:30",
+          "name": "Public Garden",
+          "type": "walk",
+          "address": "Boston Public Garden, Boston, MA",
+          "why": "Lagoon, willows, Make Way for Ducklings statues, at dusk.",
+          "cost": {
+            "label": "Free",
+            "amountUsd": 0,
+            "payAhead": false
+          },
+          "legToNext": {
+            "mode": "transit",
+            "minutes": 20,
+            "costUsd": 2.4,
+            "text": "Green Line from Arlington to Lechmere, ~20 min ($2.40), or Uber ~12 min (~$15)"
+          },
+          "lat": 42.3541,
+          "lng": -71.0704,
           "geocodeStatus": "ok"
         },
         {
