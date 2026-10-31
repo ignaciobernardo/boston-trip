@@ -275,16 +275,16 @@
         {
           "id": "sat-cowork",
           "time": "13:15",
-          "name": "Coffee and laptop: Pavement Coffeehouse",
+          "name": "Coffee and laptop: Tatte Harvard Square",
           "type": "coffee",
-          "address": "1350 Massachusetts Ave, Cambridge, MA",
-          "lat": 42.3727,
-          "lng": -71.1183,
+          "address": "1288 Massachusetts Ave, Cambridge, MA",
+          "lat": 42.3726,
+          "lng": -71.117,
           "geocodeStatus": "manual",
-          "why": "Inside the Smith Campus Center, two minutes from the Red Line. Big room, wifi, laptops welcome on a Saturday, which is rarer than it sounds here: Faro and Broadsheet both ban them on weekends. Until 15:00, then the T to Beacon Hill. If you want the old-school room instead, 1369 Coffee House in Inman (since 1993) is laptop-friendly but closes at 15:00 and is a 20 min walk off the line.",
+          "why": "Big bakery room on Mass Ave, laptops everywhere on a Saturday, pastries for the table. Until 15:00, then 3 min to the Red Line at Harvard. Quieter fallback with free wifi: Capital One Café on JFK St.",
           "cost": {
-            "label": "~$6 to $10",
-            "amountUsd": 8,
+            "label": "~$8 to $15",
+            "amountUsd": 12,
             "payAhead": false
           },
           "legToNext": {
@@ -292,7 +292,8 @@
             "minutes": 25,
             "costUsd": 2.4,
             "text": "Red Line Harvard to Charles/MGH, ~15 min ($2.40), then 5 min walk down Charles St"
-          }
+          },
+          "url": "https://www.google.com/maps/search/Tatte+Bakery+1288+Massachusetts+Ave+Cambridge/"
         },
         {
           "id": "sat-coffee-break",
