@@ -202,39 +202,10 @@
     {
       "date": "2026-10-31",
       "title": "Sat Oct 31: Mount Auburn, Harvard, Halloween on Beacon Hill",
-      "summary": "Cambridge in the morning, Beacon Hill from mid afternoon through Halloween night.",
+      "summary": "Mount Auburn and the Harvard museums in the morning, a laptop coffee in the Square after lunch, Beacon Hill from mid afternoon through Halloween night.",
       "spend": "Food and ~$5 in T fares",
       "routeUrl": "https://www.google.com/maps/dir/Simon%27s+Coffee+Shop,+1736+Massachusetts+Ave,+Cambridge,+MA/Mount+Auburn+Cemetery,+580+Mount+Auburn+St,+Cambridge,+MA/Harvard+Art+Museums,+32+Quincy+St,+Cambridge,+MA/Pinocchio%27s+Pizza,+74+Winthrop+St,+Cambridge,+MA/Panificio,+144+Charles+St,+Boston,+MA/Acorn+St,+Boston,+MA/Boston+Public+Garden,+Boston,+MA/Louisburg+Square,+Boston,+MA/Charles%2FMGH+Station,+Boston,+MA",
       "stops": [
-        {
-          "id": "sat-coffee",
-          "time": "08:30",
-          "name": "Coffee: Simon's Coffee Shop",
-          "type": "cafe",
-          "address": "1736 Massachusetts Ave, Cambridge, MA",
-          "alternatives": [
-            {
-              "name": "Tatte, Harvard Square",
-              "address": "Tatte Bakery, Harvard Square, Cambridge, MA",
-              "why": "Sit-down breakfast with pastries; pricier and busy."
-            }
-          ],
-          "why": "Tiny, local, cheap, a Harvard-student favorite.",
-          "cost": {
-            "label": "~$5 to $15",
-            "amountUsd": 7,
-            "payAhead": false
-          },
-          "legToNext": {
-            "mode": "bus",
-            "minutes": 10,
-            "costUsd": 1.7,
-            "text": "Bus 71 or 73 from Harvard, ~10 min, or a 25 min walk down Brattle St"
-          },
-          "lat": 42.3845279,
-          "lng": -71.1198467,
-          "geocodeStatus": "ok"
-        },
         {
           "id": "sat-mount-auburn",
           "time": "09:15",
@@ -292,14 +263,36 @@
             "payAhead": false
           },
           "legToNext": {
-            "mode": "subway",
-            "minutes": 20,
-            "costUsd": 2.4,
-            "text": "Red Line Harvard to Charles/MGH, ~15 min, then 5 min walk down Charles St"
+            "mode": "walk",
+            "minutes": 3,
+            "costUsd": 0,
+            "text": "3 min walk across the Square"
           },
           "lat": 42.3720032,
           "lng": -71.1202684,
           "geocodeStatus": "ok"
+        },
+        {
+          "id": "sat-cowork",
+          "time": "13:15",
+          "name": "Coffee and laptop: Pavement Coffeehouse",
+          "type": "coffee",
+          "address": "1350 Massachusetts Ave, Cambridge, MA",
+          "lat": 42.3727,
+          "lng": -71.1183,
+          "geocodeStatus": "manual",
+          "why": "Inside the Smith Campus Center, two minutes from the Red Line. Big room, wifi, laptops welcome on a Saturday, which is rarer than it sounds here: Faro and Broadsheet both ban them on weekends. Until 15:00, then the T to Beacon Hill. If you want the old-school room instead, 1369 Coffee House in Inman (since 1993) is laptop-friendly but closes at 15:00 and is a 20 min walk off the line.",
+          "cost": {
+            "label": "~$6 to $10",
+            "amountUsd": 8,
+            "payAhead": false
+          },
+          "legToNext": {
+            "mode": "transit",
+            "minutes": 25,
+            "costUsd": 2.4,
+            "text": "Red Line Harvard to Charles/MGH, ~15 min ($2.40), then 5 min walk down Charles St"
+          }
         },
         {
           "id": "sat-coffee-break",
