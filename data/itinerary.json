@@ -927,7 +927,8 @@
           },
           "lat": 42.3692,
           "lng": -71.105,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-to-mit.jpg"
         },
         {
           "id": "wed-dome",
@@ -949,7 +950,8 @@
           },
           "lat": 42.3593,
           "lng": -71.0921,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-dome.jpg"
         },
         {
           "id": "wed-stata",
@@ -971,7 +973,8 @@
           },
           "lat": 42.3617,
           "lng": -71.0906,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-stata.jpg"
         },
         {
           "id": "wed-bridge",
@@ -993,7 +996,8 @@
           },
           "lat": 42.3545,
           "lng": -71.0905,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-bridge.jpg"
         },
         {
           "id": "wed-garden",
@@ -1015,7 +1019,8 @@
           },
           "lat": 42.3541,
           "lng": -71.0704,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-garden.jpg"
         },
         {
           "id": "wed-lunch",
@@ -1037,7 +1042,8 @@
           },
           "lat": 42.3496,
           "lng": -71.0735,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-lunch.jpg"
         },
         {
           "id": "wed-bpl",
@@ -1059,7 +1065,8 @@
           },
           "lat": 42.3494,
           "lng": -71.078,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-bpl.jpg"
         },
         {
           "id": "wed-comm-ave",
@@ -1081,7 +1088,8 @@
           },
           "lat": 42.3517,
           "lng": -71.076,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-comm-ave.jpg"
         },
         {
           "id": "wed-newbury",
@@ -1103,7 +1111,8 @@
           },
           "lat": 42.3503,
           "lng": -71.08,
-          "geocodeStatus": "manual"
+          "geocodeStatus": "manual",
+          "photo": "photos/wed-newbury.jpg"
         },
         {
           "id": "wed-trident",
