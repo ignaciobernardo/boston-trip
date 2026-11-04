@@ -902,47 +902,40 @@
     },
     {
       "date": "2026-11-04",
-      "title": "Wed Nov 4: Michette, Gardner, BPL, Back Bay",
-      "summary": "The Gardner is closed Tuesdays, so it lands today, with the free BPL and a Back Bay walk. Dinner doubles as the last bookstore.",
-      "spend": "$15 in activities, ~$7 in T fares",
+      "title": "Wed Nov 4: MIT, the bridge, Public Garden, Back Bay",
+      "summary": "Last full day without another museum or a day in transit: the Great Dome and Stata in the morning, across the Harvard Bridge on foot, lunch and the Public Garden without hurry, the BPL at 15:00, then Commonwealth Ave and Newbury St. If it runs late, cut shops, not the Dome or the Garden.",
+      "spend": "Food only, ~$35 to $45 for two meals",
       "routeUrl": "https://www.google.com/maps/dir/288+Harvard+St,+Cambridge,+MA+02139/Michette+Bakery,+Inman+Square,+Cambridge,+MA/Fenway+Victory+Gardens,+Boston,+MA/Isabella+Stewart+Gardner+Museum,+25+Evans+Way,+Boston,+MA/Boston+Public+Library,+700+Boylston+St,+Boston,+MA/Trinity+Church,+206+Clarendon+St,+Boston,+MA/Commonwealth+Avenue+Mall,+Boston,+MA/Trident+Booksellers+%26+Cafe,+338+Newbury+St,+Boston,+MA",
       "stops": [
         {
-          "id": "wed-michette",
-          "time": "08:00",
-          "name": "Breakfast: Michette",
-          "type": "cafe",
-          "address": "Michette Bakery, Inman Square, Cambridge, MA",
-          "alternatives": [
-            {
-              "name": "Cicada Coffee Bar",
-              "address": "106 Prospect St, Cambridge, MA",
-              "why": "Vietnamese coffee, Best of Boston pick, next to Ginkgo."
-            }
-          ],
-          "why": "Small artisanal French bakery ~10 min from Ginkgo. Temporary hours Tue to Sun 8 to 14; confirm.",
+          "id": "wed-to-mit",
+          "time": "10:15",
+          "name": "Leave Ginkgo House for MIT",
+          "type": "transit",
+          "address": "288 Harvard St, Cambridge, MA",
+          "why": "35 min on foot down Harvard St and Main St, or 28 min walking to Central and Red Line one stop to Kendall.",
           "cost": {
-            "label": "~$8 to $12",
-            "amountUsd": 10,
+            "label": "Free",
+            "amountUsd": 0,
             "payAhead": false
           },
           "legToNext": {
-            "mode": "subway",
+            "mode": "walk",
             "minutes": 35,
-            "costUsd": 2.4,
-            "text": "Red Line Central to Park St, Green Line E to Museum of Fine Arts, about 35 min; or Uber, 20 min (~$15)"
+            "costUsd": 0,
+            "text": "35 min walk, or 10 min walk to Central and Red Line to Kendall ($2.40)"
           },
-          "lat": 42.3735131,
-          "lng": -71.0984369,
-          "geocodeStatus": "ok"
+          "lat": 42.3692,
+          "lng": -71.105,
+          "geocodeStatus": "manual"
         },
         {
-          "id": "wed-fens",
-          "time": "09:45",
-          "name": "Fenway Victory Gardens and the Back Bay Fens",
+          "id": "wed-dome",
+          "time": "10:50",
+          "name": "Great Dome from Killian Court",
           "type": "walk",
-          "address": "Fenway Victory Gardens, Boston, MA",
-          "why": "WWII community gardens inside Olmsted's Emerald Necklace; fills the time before the Gardner opens.",
+          "address": "Killian Court, MIT, Cambridge, MA",
+          "why": "The Dome from the lawn, with the river behind you. You see it from outside only: Barker Library under it needs an MIT ID. Then a loop past the Stata Center on Vassar St.",
           "cost": {
             "label": "Free",
             "amountUsd": 0,
@@ -950,65 +943,21 @@
           },
           "legToNext": {
             "mode": "walk",
-            "minutes": 8,
-            "costUsd": 0,
-            "text": "8 min walk"
-          },
-          "lat": 42.3435,
-          "lng": -71.0953,
-          "geocodeStatus": "ok"
-        },
-        {
-          "id": "wed-gardner",
-          "time": "11:00",
-          "name": "Isabella Stewart Gardner Museum",
-          "type": "museum",
-          "address": "25 Evans Way, Boston, MA",
-          "why": "Venetian palazzo around a flowering courtyard, rooms as Isabella left them, the empty frames from the 1990 heist. The one paid museum worth it if you only do one. 2 h.",
-          "cost": {
-            "label": "$15 student",
-            "amountUsd": 15,
-            "payAhead": true
-          },
-          "legToNext": {
-            "mode": "subway",
             "minutes": 10,
-            "costUsd": 2.4,
-            "text": "Green Line E, Museum of Fine Arts to Copley, ~10 min"
-          },
-          "lat": 42.338245,
-          "lng": -71.0991538,
-          "geocodeStatus": "ok"
-        },
-        {
-          "id": "wed-lunch",
-          "time": "13:15",
-          "name": "Quick lunch near Copley",
-          "type": "food",
-          "address": "Copley Square, Boston, MA",
-          "why": "Keep it cheap; grab-and-go.",
-          "cost": {
-            "label": "~$12",
-            "amountUsd": 12,
-            "payAhead": false
-          },
-          "legToNext": {
-            "mode": "walk",
-            "minutes": 3,
             "costUsd": 0,
-            "text": "3 min walk"
+            "text": "10 min walk along Vassar St to Stata and back to Mass Ave"
           },
-          "lat": 42.3499,
-          "lng": -71.0776,
-          "geocodeStatus": "ok"
+          "lat": 42.3593,
+          "lng": -71.0921,
+          "geocodeStatus": "manual"
         },
         {
-          "id": "wed-bpl",
-          "time": "13:45",
-          "name": "Boston Public Library, McKim Building",
-          "type": "museum",
-          "address": "700 Boylston St, Boston, MA",
-          "why": "Free. Bates Hall, the Sargent murals, the Italianate courtyard: the public version of the Athenaeum. 1 h.",
+          "id": "wed-stata",
+          "time": "11:30",
+          "name": "Stata Center loop",
+          "type": "walk",
+          "address": "32 Vassar St, Cambridge, MA",
+          "why": "Gehry outside, the student corridors inside if a door is open. Quick, you were here on Tuesday.",
           "cost": {
             "label": "Free",
             "amountUsd": 0,
@@ -1016,43 +965,21 @@
           },
           "legToNext": {
             "mode": "walk",
-            "minutes": 2,
+            "minutes": 25,
             "costUsd": 0,
-            "text": "2 min walk across Copley Square"
+            "text": "25 min walk over the Harvard Bridge, count the Smoots"
           },
-          "lat": 42.3493298,
-          "lng": -71.0786547,
-          "geocodeStatus": "ok"
+          "lat": 42.3617,
+          "lng": -71.0906,
+          "geocodeStatus": "manual"
         },
         {
-          "id": "wed-trinity",
-          "time": "15:00",
-          "name": "Trinity Church",
+          "id": "wed-bridge",
+          "time": "12:00",
+          "name": "Harvard Bridge on foot",
           "type": "walk",
-          "address": "206 Clarendon St, Boston, MA",
-          "why": "H. H. Richardson's 1877 masterpiece. Exterior free; interior has a fee, skip on budget.",
-          "cost": {
-            "label": "Free outside",
-            "amountUsd": 0,
-            "payAhead": false
-          },
-          "legToNext": {
-            "mode": "walk",
-            "minutes": 5,
-            "costUsd": 0,
-            "text": "5 min walk"
-          },
-          "lat": 42.3500677,
-          "lng": -71.0754254,
-          "geocodeStatus": "ok"
-        },
-        {
-          "id": "wed-comm-ave",
-          "time": "15:30",
-          "name": "Commonwealth Avenue Mall and Newbury St",
-          "type": "walk",
-          "address": "Commonwealth Avenue Mall, Boston, MA",
-          "why": "Tree-lined boulevard of brownstones at dusk (sunset ~16:30).",
+          "address": "Harvard Bridge, Boston, MA",
+          "why": "Across the Charles into Back Bay with the skyline on your left. The Smoot marks are painted every 5.7 feet.",
           "cost": {
             "label": "Free",
             "amountUsd": 0,
@@ -1062,33 +989,143 @@
             "mode": "walk",
             "minutes": 15,
             "costUsd": 0,
-            "text": "Walk up Newbury St"
+            "text": "15 min down Commonwealth Ave or Beacon St to the Garden"
           },
-          "lat": 42.3523,
+          "lat": 42.3545,
+          "lng": -71.0905,
+          "geocodeStatus": "manual"
+        },
+        {
+          "id": "wed-garden",
+          "time": "12:30",
+          "name": "Public Garden, without hurry",
+          "type": "walk",
+          "address": "4 Charles St, Boston, MA",
+          "why": "Lagoon, the willows, the Make Way for Ducklings bronzes, the last of the fall color. Sit.",
+          "cost": {
+            "label": "Free",
+            "amountUsd": 0,
+            "payAhead": false
+          },
+          "legToNext": {
+            "mode": "walk",
+            "minutes": 10,
+            "costUsd": 0,
+            "text": "10 min walk into Back Bay"
+          },
+          "lat": 42.3541,
+          "lng": -71.0704,
+          "geocodeStatus": "manual"
+        },
+        {
+          "id": "wed-lunch",
+          "time": "13:30",
+          "name": "Lunch: Flour Back Bay",
+          "type": "food",
+          "address": "131 Clarendon St, Boston, MA",
+          "why": "Vegetarian sandwiches and bowls, fast, a few minutes from Copley. Tatte on Boylston is the fallback.",
+          "cost": {
+            "label": "~$12 to $18",
+            "amountUsd": 15,
+            "payAhead": false
+          },
+          "legToNext": {
+            "mode": "walk",
+            "minutes": 8,
+            "costUsd": 0,
+            "text": "8 min walk to Copley Square"
+          },
+          "lat": 42.3496,
+          "lng": -71.0735,
+          "geocodeStatus": "manual"
+        },
+        {
+          "id": "wed-bpl",
+          "time": "15:00",
+          "name": "Boston Public Library, McKim Building",
+          "type": "walk",
+          "address": "700 Boylston St, Boston, MA",
+          "why": "Free. Bates Hall, the courtyard, the Sargent murals on the third floor, and the Leventhal Map Center gallery. Trinity Church is across the square on the way out.",
+          "cost": {
+            "label": "Free",
+            "amountUsd": 0,
+            "payAhead": false
+          },
+          "legToNext": {
+            "mode": "walk",
+            "minutes": 5,
+            "costUsd": 0,
+            "text": "5 min walk to the Mall at Dartmouth St"
+          },
+          "lat": 42.3494,
+          "lng": -71.078,
+          "geocodeStatus": "manual"
+        },
+        {
+          "id": "wed-comm-ave",
+          "time": "16:00",
+          "name": "Commonwealth Avenue Mall",
+          "type": "walk",
+          "address": "Commonwealth Ave at Dartmouth St, Boston, MA",
+          "why": "Up the Mall toward Mass Ave with the last light, sunset is 16:30. Then one block over to Newbury.",
+          "cost": {
+            "label": "Free",
+            "amountUsd": 0,
+            "payAhead": false
+          },
+          "legToNext": {
+            "mode": "walk",
+            "minutes": 5,
+            "costUsd": 0,
+            "text": "One block to Newbury St"
+          },
+          "lat": 42.3517,
           "lng": -71.076,
-          "geocodeStatus": "ok"
+          "geocodeStatus": "manual"
+        },
+        {
+          "id": "wed-newbury",
+          "time": "16:45",
+          "name": "Newbury St: bookstores, cafes, shops",
+          "type": "walk",
+          "address": "Newbury St, Boston, MA",
+          "why": "End the trip walking between shops. If the day runs late, this is what gets cut.",
+          "cost": {
+            "label": "Free",
+            "amountUsd": 0,
+            "payAhead": false
+          },
+          "legToNext": {
+            "mode": "walk",
+            "minutes": 5,
+            "costUsd": 0,
+            "text": "5 min walk"
+          },
+          "lat": 42.3503,
+          "lng": -71.08,
+          "geocodeStatus": "manual"
         },
         {
           "id": "wed-trident",
-          "time": "17:00",
+          "time": "17:30",
           "name": "Dinner and last bookstore: Trident Booksellers & Cafe",
-          "type": "bookstore",
+          "type": "food",
           "address": "338 Newbury St, Boston, MA",
-          "why": "40-year-old bookstore with a full cafe serving dinner; last meal and last browse in one stop.",
+          "why": "Bookstore with a full menu, vegetarian plates, open late. Then home to pack.",
           "cost": {
             "label": "~$18 to $25",
             "amountUsd": 22,
             "payAhead": false
           },
           "legToNext": {
-            "mode": "subway",
+            "mode": "transit",
             "minutes": 30,
             "costUsd": 2.4,
-            "text": "Green Line Hynes to Park St, Red Line to Central, walk 10 min (about 30 min total)"
+            "text": "Green Line Hynes to Park St, Red Line to Central, walk 10 min (about 30 min total), or Uber 15 min"
           },
-          "lat": 42.3482427,
-          "lng": -71.08661,
-          "geocodeStatus": "ok"
+          "lat": 42.3488,
+          "lng": -71.0867,
+          "geocodeStatus": "manual"
         }
       ]
     },
